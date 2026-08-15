@@ -267,3 +267,40 @@ export const datenstand: string = spartenDateien
   .map((datei) => datei.stand)
   .sort()
   .at(-1) ?? '';
+
+/* ------------------------------------------------------------------ *
+ * Nachschlagen
+ * ------------------------------------------------------------------ */
+
+/** Zugriff auf eine Sparte samt Bezeichnung und Datenstand. */
+export const spartenNachName: ReadonlyMap<Sparte, SpartenDatei> = new Map(
+  spartenDateien.map((datei) => [datei.sparte, datei]),
+);
+
+/** Zugriff auf ein einzelnes Medium über seine id. Eindeutig, siehe pruefeEindeutigeIds. */
+export const medienNachId: ReadonlyMap<string, Medium> = new Map(
+  alleMedien.map((medium) => [medium.id, medium]),
+);
+
+/**
+ * Alle Bände einer Reihe, über Sparten hinweg.
+ *
+ * Bewusst nur über den Reihennamen gebildet: Eine Reihe bleibt dieselbe Reihe, auch
+ * wenn ein Band von einem anderen Autor stammt. Enthält auch Reihen mit nur einem
+ * Band — wer nur echte Serien will, prüft die Länge.
+ */
+export const reihenIndex: ReadonlyMap<string, Medium[]> = (() => {
+  const index = new Map<string, Medium[]>();
+  for (const medium of alleMedien) {
+    if (!medium.reihe) continue;
+    const baende = index.get(medium.reihe);
+    if (baende) baende.push(medium);
+    else index.set(medium.reihe, [medium]);
+  }
+  return index;
+})();
+
+/** Die Medien einer Sparte in Dateireihenfolge (unsortiert). */
+export function medienDerSparte(sparte: Sparte): Medium[] {
+  return spartenNachName.get(sparte)?.items ?? [];
+}

@@ -1,0 +1,115 @@
+---
+/**
+ * Umschalter für die Sortierung einer Listenansicht.
+ *
+ * Bewusst Links statt Schaltflächen: Jede Sortierung ist eine eigene, fertig gebaute
+ * Seite. Das funktioniert ohne JavaScript, lässt sich als Lesezeichen speichern und
+ * der Zurück-Knopf tut, was man erwartet. Ein Wechsel der Sortierung springt zurück
+ * auf Seite 1 — Seite 7 „derselben" Liste gibt es nach dem Umsortieren nicht mehr.
+ */
+import type { Sparte } from '../lib/daten';
+import { spartenPfad } from '../lib/pfade';
+import { SORTIERUNGEN, SORTIER_TEXTE, type Sortierung } from '../lib/sortierung';
+
+interface Props {
+  sparte: Sparte;
+  aktuell: Sortierung;
+  /** Ohne Aufnahmedaten im Bestand hat „Zuletzt aufgenommen" nichts zu ordnen. */
+  neuVerfuegbar: boolean;
+}
+
+const { sparte, aktuell, neuVerfuegbar } = Astro.props;
+---
+
+<nav class="sortierwahl" aria-label="Sortierung">
+  <span class="label">Sortieren nach</span>
+  <ul class="liste">
+    {
+      SORTIERUNGEN.map((sortierung) => {
+        const istAktuell = sortierung === aktuell;
+        const abgeschaltet = sortierung === 'neu' && !neuVerfuegbar;
+
+        return (
+          <li>
+            {abgeschaltet ? (
+              <span
+                class="knopf abgeschaltet"
+                title="Möglich, sobald bei Neuzugängen ein Aufnahmedatum gepflegt wird"
+              >
+                {SORTIER_TEXTE[sortierung].kurz}
+              </span>
+            ) : (
+              <a
+                class:list={['knopf', { aktiv: istAktuell }]}
+                href={spartenPfad(sparte, sortierung)}
+                aria-current={istAktuell ? 'true' : undefined}
+              >
+                {SORTIER_TEXTE[sortierung].kurz}
+                <span class="nur-vorlesen"> — {SORTIER_TEXTE[sortierung].lang}</span>
+              </a>
+            )}
+          </li>
+        );
+      })
+    }
+  </ul>
+</nav>
+
+<style>
+  .sortierwahl {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--abstand-2) var(--abstand-3);
+    font-family: var(--schrift-ui);
+  }
+
+  .label {
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .liste {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--abstand-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .knopf {
+    display: inline-block;
+    /* Mindestens fingerbreit — die Liste wird am Regal mit dem Handy bedient. */
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--farbe-rand);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+    color: var(--farbe-text-leise);
+    font-size: var(--text-klein);
+    text-decoration: none;
+    transition:
+      border-color var(--uebergang),
+      background-color var(--uebergang),
+      color var(--uebergang);
+  }
+
+  a.knopf:hover {
+    border-color: var(--farbe-akzent);
+    color: var(--farbe-akzent);
+  }
+
+  .knopf.aktiv {
+    border-color: var(--farbe-akzent);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+    font-weight: 600;
+  }
+
+  .knopf.abgeschaltet {
+    background: transparent;
+    border-style: dashed;
+    color: var(--farbe-rand-kraeftig);
+    cursor: not-allowed;
+  }
+</style>

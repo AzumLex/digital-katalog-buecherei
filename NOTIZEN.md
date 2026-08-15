@@ -8,6 +8,9 @@ Original (`Romane.doc`, `Tonies.xlsx`).
 Stand der Durchsicht: 16.08.2026 · 987 Einträge · `npm run validate` meldet 0 Schemafehler
 und 0 doppelte ids.
 
+Die Punkte 1–7 stammen aus der Ersteinrichtung, die Punkte 8–12 kamen beim Bau der
+Katalogansicht dazu — dort fällt auf, was sich im JSON allein nicht zeigt.
+
 ---
 
 ## 1. Einträge mit Prüfvermerk (`_pruefen`)
@@ -159,3 +162,105 @@ ausdrücklich erlaubt und damit in Ordnung.
   werden.
 - **`cover_url` ist nirgends gesetzt.** Für Titel mit gültiger ISBN ließen sich Cover später
   automatisch beziehen.
+
+---
+
+## 8. `preis_eur` enthält bei sechs Einträgen Schilling, keine Euro
+
+Sechs Einträge tragen `"waehrung_original": "ATS"`. Bei zweien davon steht in `preis_eur`
+trotzdem der Schillingbetrag aus der Quelle:
+
+| id | `preis_eur` | Originalzeile |
+|---|---|---|
+| `rom-coelho-der-alchimist-1269` | `175` | `ATS 234,00/175,00` |
+| `rom-helfer-oskar-und-lilli-6864` | `209` | `ATS 281,00/209,00` |
+
+175 Schilling sind rund 12,70 Euro — als Euro gelesen wäre der Preis also gut vierzehnmal
+zu hoch. Die übrigen vier Einträge haben gar keinen `preis_eur`.
+
+Der Katalog zeigt den Betrag deshalb ohne Eurozeichen an, sobald `waehrung_original`
+gesetzt ist: „175 ATS" statt „€ 175,00". Sauber wäre, beim nächsten Durchgang entweder
+umzurechnen (1 € = 13,7603 ATS) oder ein eigenes Feld `preis_original` einzuführen.
+
+---
+
+## 9. Die Anzeigeform `autor` ist bei 17 Einträgen zusammengeschoben
+
+Wo im Word-Dokument zwei Verfasser standen, hat der Import Vor- und Nachnamen falsch
+getrennt:
+
+| `autor` | `autor_vorname` | `autor_nachname` |
+|---|---|---|
+| `Thomas/Lier Horst, Jørn Enger` | `Thomas/Lier Horst, Jørn` | `Enger` |
+| `Tess/Braver, Gary Gerritsen` | `Tess/Braver, Gary` | `Gerritsen` |
+| `Volker/Kobr, Michael Klüpfel` | `Volker/Kobr, Michael` | `Klüpfel` |
+
+Richtig wäre `autor: "Thomas Enger"` mit `weitere_autoren: ["Jørn Lier Horst"]` — das Feld
+`weitere_autoren` ist bei diesen Einträgen sogar schon korrekt befüllt, nur der zweite Name
+steckt zusätzlich im Vornamen des ersten.
+
+Betrifft 17 Einträge. Der Katalog zeigt sie so an, wie sie dastehen; die Einsortierung
+stimmt (sie läuft über `autor_nachname`), nur die Namenszeile liest sich holprig.
+
+---
+
+## 10. „Der Alchimist": Reihe und Band aus einer Klammerbemerkung erfunden
+
+```
+rom-coelho-der-alchimist-1269
+  reihe: "Auch für jugendl. Leser ab"
+  band:  15
+  notiz: "Auch für jugendl. Leser ab 15"
+```
+
+Im Quelltext steht am Zeilenende `(Auch für jugendl. Leser ab 15)`. Der Import hat das für
+eine Reihenangabe mit Bandnummer gehalten. Der Alchimist gehört zu keiner Reihe; gemeint
+war eine Altersempfehlung, also inhaltlich `alter_ab: 15`.
+
+Folge im Katalog: Auf der Detailseite steht über dem Titel „Auch für jugendl. Leser ab ·
+Band 15". Weil diese „Reihe" nur einen Eintrag hat, wird sie wenigstens nicht als Serie
+behandelt und es entsteht kein Reihenblock. Es ist der einzige Fall dieser Art im Bestand.
+
+---
+
+## 11. Eine Serie zerfällt in vier Einzelreihen
+
+Vier Bände einer Thriller-Reihe haben jeweils einen eigenen `reihe`-Wert bekommen, weil der
+Untertitel mit hineingerutscht ist:
+
+| `band` | `reihe` | Titel |
+|---|---|---|
+| 1 | `Es geht um dein Leben Thriller` | Das Spiel. Es geht um dein Leben |
+| 2 | `Wirst du morgen noch leben? Thriller` | Die Nacht. Wirst du morgen noch leben? |
+| 3 | `Er wird dich finden Thriller` | Die Spur. Er wird dich finden |
+| 4 | `Dein letzter Tag ist gekommen Thriller` | Das Ende. Dein letzter Tag ist gekommen |
+
+Weil jeder Wert nur einmal vorkommt, gelten die vier dem Katalog als vier verschiedene
+Reihen mit je einem Band — sie werden weder gruppiert noch untereinander verlinkt. Ein
+einheitlicher Reihenname (z. B. `Das Spiel`) würde das beheben.
+
+Ähnlich, wenn auch harmloser: `Die Frau im Eishaus Ein Schwedenkrimi mit August Strindberg`
+(59 Zeichen) ist eher Titel plus Gattungsangabe als ein Reihenname.
+
+---
+
+## 12. Kleinkram
+
+- **`notiz` wiederholt oft nur die Bandnummer.** Bei 44 der 73 Einträge mit `notiz` steht
+  dort exakt „Bd. 4" — dieselbe Angabe, die schon in `band` steht. Der Katalog blendet
+  genau diese Fälle aus, damit unter „Band 4" nicht noch einmal „Anmerkung: Bd. 4" steht.
+  Die übrigen 29 Notizen sind echter Freitext („Kriminalroman", „ab 14 und Erwachsene",
+  „Kommissar Proteo Laurentis zehnter Fall.") und werden angezeigt.
+- **`originalsprache` enthält abgeschnittene Wortfragmente.** In den Daten stehen Werte wie
+  `Engl`, `Isländ`, `Französ`, `Schwed`, `amerikan`, `argentinischem` — Bruchstücke aus
+  Wendungen wie „Aus dem Englischen von …". Der Katalog zeigt sie unverändert; sinnvoll
+  wären ISO-Codes (`en`, `is`, `fr`) oder wenigstens ausgeschriebene Sprachnamen.
+- **`NesbØ`** ist mit großem Ø in der Mitte geschrieben, richtig wäre `Nesbø`. Auf die
+  Einsortierung wirkt sich das nicht aus (der Collator behandelt ø wie o), auf die Anzeige
+  schon.
+- **`sprache` ist bei allen 987 Einträgen `de`** und `bestand` überall `1`. Beide Zeilen
+  stehen dadurch auf jeder Detailseite, ohne je etwas zu unterscheiden. Sobald es
+  fremdsprachige Titel oder Mehrfachexemplare gibt, tragen sie Information — bis dahin
+  sind sie schlicht Rauschen.
+- **`spieler_min`, `spieler_max`, `spieldauer_min`** kommen im Bestand kein einziges Mal vor.
+  Erwartbar: Die Sparte `spiele` ist noch leer. Der Katalog kann die Felder bereits anzeigen.

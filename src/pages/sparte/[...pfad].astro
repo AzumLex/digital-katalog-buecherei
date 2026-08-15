@@ -1,0 +1,203 @@
+---
+/**
+ * Listenansicht einer Sparte.
+ *
+ * Alle Kombinationen aus Sparte, Sortierung und Seite werden beim Build als eigene
+ * Seiten erzeugt. Dadurch braucht die Liste kein JavaScript: Umsortieren und Blättern
+ * sind normale Links auf fertiges HTML.
+ */
+import type { GetStaticPaths } from 'astro';
+import Grundgeruest from '../../layouts/Grundgeruest.astro';
+import Blaetterung from '../../components/Blaetterung.astro';
+import Medieneintrag from '../../components/Medieneintrag.astro';
+import Sortierwahl from '../../components/Sortierwahl.astro';
+import { SPARTEN, alleMedien, medienDerSparte, spartenNachName, type Medium, type Sparte } from '../../lib/daten';
+import { ankerIds } from '../../lib/autoren';
+import { autorAnker, spartenSegmente } from '../../lib/pfade';
+import {
+  SORTIERUNGEN,
+  SORTIER_TEXTE,
+  STANDARD_SORTIERUNG,
+  anzahlSeiten,
+  seiteVon,
+  sortiere,
+  type Seite,
+  type Sortierung,
+} from '../../lib/sortierung';
+
+/** Ohne ein einziges Aufnahmedatum im Bestand hat „Zuletzt aufgenommen" nichts zu ordnen. */
+const neuVerfuegbar = alleMedien.some((medium) => Boolean(medium.erfasst_am));
+
+export const getStaticPaths = (() => {
+  const hatAufnahmedatum = alleMedien.some((medium) => Boolean(medium.erfasst_am));
+
+  return SPARTEN.flatMap((sparte) => {
+    const medien = medienDerSparte(sparte);
+    const anker = ankerIds(sparte);
+
+    // Die Sortierung „zuletzt aufgenommen" wird erst gebaut, wenn es Aufnahmedaten
+    // gibt — sonst entstünden Seiten, die nur eine zufällige Reihenfolge zeigen.
+    const sortierungen = SORTIERUNGEN.filter((s) => s !== 'neu' || hatAufnahmedatum);
+
+    return sortierungen.flatMap((sortierung) => {
+      const sortiert = sortiere(medien, sortierung);
+      const seiten = anzahlSeiten(sortiert.length);
+
+      return Array.from({ length: seiten }, (_, i) => {
+        const nummer = i + 1;
+        return {
+          params: { pfad: spartenSegmente(sparte, sortierung, nummer).join('/') },
+          props: {
+            sparte,
+            sortierung,
+            seite: seiteVon(sortiert, nummer),
+            // Anker nur in der Standardsortierung: Nur dort stehen die Titel eines
+            // Autors als zusammenhängender Block.
+            anker: sortierung === STANDARD_SORTIERUNG ? anker : new Map<string, string>(),
+          },
+        };
+      });
+    });
+  });
+}) satisfies GetStaticPaths;
+
+interface Props {
+  sparte: Sparte;
+  sortierung: Sortierung;
+  seite: Seite<Medium>;
+  anker: ReadonlyMap<string, string>;
+}
+
+const { sparte, sortierung, seite, anker } = Astro.props;
+
+const datei = spartenNachName.get(sparte);
+const bezeichnung = datei?.bezeichnung ?? sparte;
+
+const seitenTitel =
+  seite.anzahlSeiten > 1
+    ? `${bezeichnung} — Seite ${seite.nummer} von ${seite.anzahlSeiten}`
+    : bezeichnung;
+---
+
+<Grundgeruest
+  titel={`${seitenTitel} · Büchereikatalog`}
+  beschreibung={`${bezeichnung} im Bestand der Bücherei — ${seite.anzahlEintraege} Titel.`}
+>
+  <nav class="brotkrumen" aria-label="Pfad">
+    <a href="/">Katalog</a> <span aria-hidden="true">›</span> <span>{bezeichnung}</span>
+  </nav>
+
+  <h1 class="ueberschrift">{bezeichnung}</h1>
+
+  {
+    seite.anzahlEintraege > 0 ? (
+      <p class="bilanz">
+        {seite.anzahlEintraege.toLocaleString('de-AT')} Titel
+        {seite.anzahlSeiten > 1 && (
+          <>
+            {' · '}
+            angezeigt {seite.von}–{seite.bis}
+          </>
+        )}
+      </p>
+    ) : (
+      <p class="bilanz">Diese Sparte ist noch nicht erfasst.</p>
+    )
+  }
+
+  {
+    seite.anzahlEintraege > 0 && (
+      <>
+        <div class="werkzeuge">
+          <Sortierwahl sparte={sparte} aktuell={sortierung} neuVerfuegbar={neuVerfuegbar} />
+        </div>
+
+        <p class="nur-vorlesen">Sortierung: {SORTIER_TEXTE[sortierung].lang}</p>
+
+        <ul class="liste">
+          {seite.eintraege.map((medium) => {
+            const schluessel = anker.get(medium.id);
+            return <Medieneintrag medium={medium} anker={schluessel ? autorAnker(schluessel) : undefined} />;
+          })}
+        </ul>
+
+        <Blaetterung sparte={sparte} sortierung={sortierung} seite={seite} />
+      </>
+    )
+  }
+
+  {
+    seite.anzahlEintraege === 0 && (
+      <div class="leerhinweis">
+        <p>
+          Für diese Sparte liegen noch keine Daten vor. Die Sparte ist bereits angelegt, damit die
+          Titel nur noch eingetragen werden müssen.
+        </p>
+        <p class="klein">
+          Wie das geht, steht in der <code>README.md</code> unter „Einen Titel hinzufügen".
+        </p>
+      </div>
+    )
+  }
+</Grundgeruest>
+
+<style>
+  .brotkrumen {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .brotkrumen span {
+    margin: 0 0.25em;
+  }
+
+  .ueberschrift {
+    margin: var(--abstand-2) 0 0;
+    font-size: var(--text-titel);
+    letter-spacing: -0.01em;
+  }
+
+  .bilanz {
+    margin: var(--abstand-2) 0 0;
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .werkzeuge {
+    margin: var(--abstand-4) 0 var(--abstand-3);
+    padding-bottom: var(--abstand-3);
+    border-bottom: 1px solid var(--farbe-rand);
+  }
+
+  .liste {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .leerhinweis {
+    margin-top: var(--abstand-4);
+    padding: var(--abstand-4);
+    background: var(--farbe-flaeche-leise);
+    border: 1px dashed var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+  }
+
+  .leerhinweis p {
+    margin: 0;
+  }
+
+  .leerhinweis .klein {
+    margin-top: var(--abstand-2);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  code {
+    font-family: var(--schrift-zahl);
+    font-size: 0.9em;
+  }
+</style>

@@ -1,146 +1,150 @@
 ---
 /**
- * Startseite — Stand Phase 1.
- *
- * Zeigt bewusst nur die Anzahl je Sparte. Damit ist belegt, dass die Datenpipeline
- * steht: JSON gelesen, gegen das Schema geprüft, Typen vergeben, ids eindeutig.
- * Suche, Filter und Detailseiten kommen in den nächsten Phasen dazu.
+ * Startseite: Suchleiste, Sparten als Kacheln, darunter die Neuzugänge.
  */
 import Grundgeruest from '../layouts/Grundgeruest.astro';
-import { spartenUebersicht, gesamtAnzahl, datenstand } from '../lib/daten';
+import Medieneintrag from '../components/Medieneintrag.astro';
+import Spartenkachel from '../components/Spartenkachel.astro';
+import Suchleiste from '../components/Suchleiste.astro';
+import { alleMedien, spartenUebersicht } from '../lib/daten';
+import { sortiere } from '../lib/sortierung';
 
-const datenstandLesbar = datenstand
-  ? new Date(datenstand).toLocaleDateString('de-AT', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    })
-  : 'unbekannt';
+/**
+ * „Neu im Bestand" hängt allein an `erfasst_am` — dem Datum, an dem ein Medium in
+ * die Bücherei aufgenommen wurde. Das Erscheinungsjahr taugt dafür nicht: Ein 2019
+ * erschienener Roman kann vorige Woche gekauft worden sein und umgekehrt.
+ *
+ * Derzeit ist das Feld bei keinem Eintrag gepflegt, deshalb steht hier vorerst ein
+ * Hinweis. Sobald bei Neuzugängen ein Datum gesetzt wird, füllt sich der Abschnitt
+ * von allein.
+ */
+const mitAufnahmedatum = alleMedien.filter((medium) => Boolean(medium.erfasst_am));
+const neuzugaenge = sortiere(mitAufnahmedatum, 'neu').slice(0, 12);
 ---
 
 <Grundgeruest
-  titel="Büchereikatalog — Bestand"
-  beschreibung="Digitaler Index der Büchereimedien, nach Sparten gezählt."
+  titel="Büchereikatalog"
+  beschreibung="Digitaler Index der Büchereimedien — Romane, Tonies und mehr, nach Sparten geordnet."
+  istStartseite
 >
-  <header class="kopf">
-    <h1>Büchereikatalog</h1>
-    <p class="unterzeile">
-      {gesamtAnzahl.toLocaleString('de-AT')} Medien im Bestand · Datenstand {datenstandLesbar}
-    </p>
-  </header>
+  <h1 class="ueberschrift">Büchereikatalog</h1>
+  <p class="einleitung">
+    Der gesamte Bestand der Bücherei zum Nachschlagen — auch direkt am Regal.
+  </p>
 
-  <table class="sparten">
-    <caption class="sr-only">Anzahl der Medien je Sparte</caption>
-    <thead>
-      <tr>
-        <th scope="col">Sparte</th>
-        <th scope="col" class="zahl">Anzahl</th>
-      </tr>
-    </thead>
-    <tbody>
+  <Suchleiste />
+
+  <section aria-labelledby="sparten-titel">
+    <h2 id="sparten-titel" class="abschnitt">Sparten</h2>
+    <div class="kacheln">
       {
         spartenUebersicht.map((eintrag) => (
-          <tr class:list={[{ leer: eintrag.anzahl === 0 }]}>
-            <th scope="row">{eintrag.bezeichnung}</th>
-            <td class="zahl">{eintrag.anzahl.toLocaleString('de-AT')}</td>
-          </tr>
+          <Spartenkachel
+            sparte={eintrag.sparte}
+            bezeichnung={eintrag.bezeichnung}
+            anzahl={eintrag.anzahl}
+          />
         ))
       }
-    </tbody>
-    <tfoot>
-      <tr>
-        <th scope="row">Gesamt</th>
-        <td class="zahl">{gesamtAnzahl.toLocaleString('de-AT')}</td>
-      </tr>
-    </tfoot>
-  </table>
+    </div>
+  </section>
 
-  <p class="hinweis">
-    Sparten ohne Einträge sind bereits angelegt und warten auf ihre Daten.
-  </p>
+  <section class="neu" aria-labelledby="neu-titel">
+    <h2 id="neu-titel" class="abschnitt">Neu im Bestand</h2>
+
+    {
+      neuzugaenge.length > 0 ? (
+        <ul class="liste">
+          {neuzugaenge.map((medium) => (
+            <Medieneintrag medium={medium} />
+          ))}
+        </ul>
+      ) : (
+        <div class="leerhinweis">
+          <p>Noch keine Aufnahmedaten erfasst.</p>
+          <p class="klein">
+            Sobald bei Neuzugängen das Feld <code>erfasst_am</code> gesetzt wird, erscheinen hier
+            automatisch die zwölf zuletzt aufgenommenen Titel.
+          </p>
+        </div>
+      )
+    }
+  </section>
 </Grundgeruest>
 
 <style>
-  .kopf {
-    margin-bottom: var(--abstand-5);
-  }
-
-  h1 {
+  .ueberschrift {
     margin: 0;
     font-size: var(--text-titel);
     letter-spacing: -0.01em;
   }
 
-  .unterzeile {
-    margin: var(--abstand-2) 0 0;
+  .einleitung {
+    margin: var(--abstand-2) 0 var(--abstand-5);
     color: var(--farbe-text-leise);
-    font-family: var(--schrift-ui);
-    font-size: var(--text-klein);
   }
 
-  .sparten {
-    width: 100%;
-    border-collapse: collapse;
-    background: var(--farbe-flaeche);
-    border: 1px solid var(--farbe-rand);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-
-  .sparten th,
-  .sparten td {
-    padding: var(--abstand-3);
-    text-align: left;
+  .abschnitt {
+    margin: 0 0 var(--abstand-3);
+    padding-bottom: var(--abstand-2);
     border-bottom: 1px solid var(--farbe-rand);
-  }
-
-  .sparten thead th {
     font-family: var(--schrift-ui);
     font-size: var(--text-klein);
     font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--farbe-text-leise);
-    background: var(--farbe-akzent-leise);
-  }
-
-  .sparten tbody th {
-    font-weight: 400;
-  }
-
-  .sparten tbody tr.leer th,
-  .sparten tbody tr.leer td {
     color: var(--farbe-text-leise);
   }
 
-  .sparten tfoot th,
-  .sparten tfoot td {
-    border-bottom: 0;
-    border-top: 2px solid var(--farbe-rand);
-    font-weight: 600;
+  .kacheln {
+    display: grid;
+    gap: var(--abstand-2);
+    grid-template-columns: 1fr;
   }
 
-  .zahl {
-    text-align: right;
-    font-family: var(--schrift-zahl);
-    font-variant-numeric: tabular-nums;
+  @media (min-width: 30rem) {
+    .kacheln {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
-  .hinweis {
-    margin-top: var(--abstand-4);
-    color: var(--farbe-text-leise);
+  @media (min-width: 44rem) {
+    .kacheln {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .neu {
+    margin-top: var(--abstand-5);
+  }
+
+  .liste {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--farbe-rand);
+  }
+
+  .leerhinweis {
+    padding: var(--abstand-4);
+    background: var(--farbe-flaeche-leise);
+    border: 1px dashed var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+  }
+
+  .leerhinweis p {
+    margin: 0;
+  }
+
+  .leerhinweis .klein {
+    margin-top: var(--abstand-2);
     font-family: var(--schrift-ui);
     font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
   }
 
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+  code {
+    font-family: var(--schrift-zahl);
+    font-size: 0.9em;
   }
 </style>

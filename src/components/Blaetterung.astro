@@ -1,0 +1,159 @@
+---
+/**
+ * Blättern zwischen den Seiten einer Listenansicht.
+ *
+ * Eine Seite fasst 60 Einträge. Die 806 Romane als eine Seite auszuliefern wären
+ * gut 800 Einträge im DOM — auf einem älteren Handy spürbar. Geblättert wird über
+ * echte Links auf fertig gebaute Seiten, nicht über Nachladen.
+ */
+import type { Sparte } from '../lib/daten';
+import { spartenPfad } from '../lib/pfade';
+import type { Seite, Sortierung } from '../lib/sortierung';
+
+interface Props {
+  sparte: Sparte;
+  sortierung: Sortierung;
+  seite: Seite<unknown>;
+}
+
+const { sparte, sortierung, seite } = Astro.props;
+
+/**
+ * Seitenzahlen mit Auslassungen: erste, letzte, die aktuelle und je eine daneben.
+ * Bei 14 Seiten stünden sonst 14 Ziffern nebeneinander.
+ */
+function seitenLeiste(aktuell: number, gesamt: number): Array<number | 'luecke'> {
+  const zeigen = new Set([1, gesamt, aktuell - 1, aktuell, aktuell + 1]);
+  const nummern = [...zeigen].filter((n) => n >= 1 && n <= gesamt).sort((a, b) => a - b);
+
+  const leiste: Array<number | 'luecke'> = [];
+  let vorher = 0;
+  for (const n of nummern) {
+    if (vorher && n - vorher > 1) leiste.push('luecke');
+    leiste.push(n);
+    vorher = n;
+  }
+  return leiste;
+}
+
+const leiste = seitenLeiste(seite.nummer, seite.anzahlSeiten);
+const hatVorherige = seite.nummer > 1;
+const hatNaechste = seite.nummer < seite.anzahlSeiten;
+---
+
+{
+  seite.anzahlSeiten > 1 && (
+    <nav class="blaetterung" aria-label="Seiten">
+      <a
+        class:list={['pfeil', { gesperrt: !hatVorherige }]}
+        href={hatVorherige ? spartenPfad(sparte, sortierung, seite.nummer - 1) : undefined}
+        aria-disabled={hatVorherige ? undefined : 'true'}
+        rel="prev"
+      >
+        <span aria-hidden="true">←</span> Zurück
+      </a>
+
+      <ol class="nummern">
+        {leiste.map((eintrag) =>
+          eintrag === 'luecke' ? (
+            <li class="luecke" aria-hidden="true">
+              …
+            </li>
+          ) : (
+            <li>
+              <a
+                class:list={['nummer', { aktiv: eintrag === seite.nummer }]}
+                href={spartenPfad(sparte, sortierung, eintrag)}
+                aria-current={eintrag === seite.nummer ? 'page' : undefined}
+              >
+                <span class="nur-vorlesen">Seite </span>
+                {eintrag}
+              </a>
+            </li>
+          ),
+        )}
+      </ol>
+
+      <a
+        class:list={['pfeil', { gesperrt: !hatNaechste }]}
+        href={hatNaechste ? spartenPfad(sparte, sortierung, seite.nummer + 1) : undefined}
+        aria-disabled={hatNaechste ? undefined : 'true'}
+        rel="next"
+      >
+        Weiter <span aria-hidden="true">→</span>
+      </a>
+    </nav>
+  )
+}
+
+<style>
+  .blaetterung {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--abstand-2);
+    margin-top: var(--abstand-4);
+    padding-top: var(--abstand-3);
+    border-top: 1px solid var(--farbe-rand);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .nummern {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--abstand-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    /* Auf schmalen Displays rutschen die Ziffern in eine eigene Zeile. */
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .pfeil,
+  .nummer {
+    display: inline-block;
+    padding: 0.5rem 0.75rem;
+    min-width: 2.5rem;
+    text-align: center;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    color: var(--farbe-akzent);
+    text-decoration: none;
+    transition:
+      background-color var(--uebergang),
+      border-color var(--uebergang);
+  }
+
+  .pfeil:hover,
+  .nummer:hover {
+    background: var(--farbe-akzent-leise);
+  }
+
+  .nummer.aktiv {
+    border-color: var(--farbe-rand-kraeftig);
+    background: var(--farbe-flaeche-leise);
+    color: var(--farbe-text);
+    font-weight: 600;
+  }
+
+  .gesperrt {
+    color: var(--farbe-rand-kraeftig);
+    pointer-events: none;
+  }
+
+  .luecke {
+    padding: 0.5rem 0.25rem;
+    color: var(--farbe-text-leise);
+  }
+
+  @media (min-width: 32rem) {
+    .nummern {
+      order: 0;
+      flex-basis: auto;
+    }
+  }
+</style>

@@ -1,0 +1,138 @@
+---
+/**
+ * Eine Zeile der Listenansicht.
+ *
+ * Aufbau von oben nach unten: Ansetzungsform des Autors, Werktitel, Reihe und Band,
+ * dann die kurze Zusatzzeile. Was fehlt, entfällt ersatzlos — es gibt keine
+ * Platzhalterzeilen.
+ */
+import type { Medium } from '../lib/daten';
+import { bandText, istGesetzt, laufzeitText, ordnungsform } from '../lib/anzeige';
+import { titelPfad } from '../lib/pfade';
+
+interface Props {
+  medium: Medium;
+  /** Ankername für den Block eines Autors; nur beim ersten Titel des Autors gesetzt. */
+  anker?: string;
+}
+
+const { medium, anker } = Astro.props;
+
+const autor = ordnungsform(medium);
+
+/** Reihe und Band als eine Angabe: „Ein Fall für August Emmerich · Band 1". */
+const reihenzeile = [medium.reihe, bandText(medium)].filter(Boolean).join(' · ');
+
+/**
+ * Die Zusatzzeile unterscheidet sich nach Medienform, weil bei einem Buch andere
+ * Angaben beim Wiedererkennen helfen als bei einem Tonie.
+ */
+const zusatz: string[] =
+  medium.medium === 'Tonie' || medium.medium === 'CD'
+    ? [
+        medium.art,
+        istGesetzt(medium.laufzeit_min) ? laufzeitText(medium.laufzeit_min as number) : undefined,
+        istGesetzt(medium.alter_ab) ? `ab ${medium.alter_ab} Jahren` : undefined,
+      ].filter((t): t is string => Boolean(t))
+    : [
+        [medium.verlag, medium.ort].filter(Boolean).join(', '),
+        istGesetzt(medium.jahr) ? String(medium.jahr) : '',
+        istGesetzt(medium.seiten) ? `${medium.seiten} S.` : '',
+      ].filter(Boolean);
+---
+
+<li class="eintrag" id={anker}>
+  {autor && <p class="autor">{autor}</p>}
+
+  <h3 class="titel">
+    <a href={titelPfad(medium.id)}>{medium.titel}</a>
+  </h3>
+
+  {medium.untertitel && <p class="untertitel">{medium.untertitel}</p>}
+
+  {reihenzeile && <p class="reihe">{reihenzeile}</p>}
+
+  {
+    /* Bei Tonies erkennen Kinder das Medium an der Figur, nicht am Titel —
+       deshalb steht sie hier direkt beim Titel und nicht unten bei den Details. */
+    medium.figur && (
+      <p class="figur">
+        <span class="figur-label">Figur</span>
+        {medium.figur}
+      </p>
+    )
+  }
+
+  {zusatz.length > 0 && <p class="zusatz">{zusatz.join(' · ')}</p>}
+</li>
+
+<style>
+  .eintrag {
+    padding: var(--abstand-3) 0;
+    border-bottom: 1px solid var(--farbe-rand);
+    /* Anker sollen nicht unter der oberen Fensterkante kleben. */
+    scroll-margin-top: var(--abstand-4);
+  }
+
+  .eintrag > * {
+    margin: 0;
+  }
+
+  .autor {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .titel {
+    margin-top: var(--abstand-1);
+    font-size: var(--text-gross);
+    font-weight: 600;
+  }
+
+  .titel a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .titel a:hover {
+    color: var(--farbe-akzent);
+    text-decoration: underline;
+  }
+
+  .untertitel {
+    font-size: var(--text-normal);
+    font-style: italic;
+    color: var(--farbe-text-leise);
+    line-height: var(--zeilenhoehe-eng);
+    margin-top: var(--abstand-1);
+  }
+
+  .reihe,
+  .zusatz {
+    margin-top: var(--abstand-1);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .figur {
+    margin-top: var(--abstand-2);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text);
+  }
+
+  .figur-label {
+    display: inline-block;
+    margin-right: var(--abstand-2);
+    padding: 0 0.4em;
+    border-radius: var(--radius);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+    font-size: var(--text-winzig);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+</style>

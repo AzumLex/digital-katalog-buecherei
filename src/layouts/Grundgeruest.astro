@@ -1,16 +1,21 @@
 ---
 /**
- * Gemeinsames Seitengerüst: <head>, Grundstyles, zentrierter Inhaltsbereich.
+ * Gemeinsames Seitengerüst: <head>, Kopf- und Fußzeile, zentrierter Inhaltsbereich.
  * Jede Seite im Katalog nutzt dieses Layout.
  */
 import '../styles/global.css';
+import { datenstand, gesamtAnzahl } from '../lib/daten';
 
 interface Props {
   titel: string;
   beschreibung?: string;
+  /** Auf der Startseite wird der Kopf nicht verlinkt — man ist schon dort. */
+  istStartseite?: boolean;
 }
 
-const { titel, beschreibung } = Astro.props;
+const { titel, beschreibung, istStartseite = false } = Astro.props;
+
+const jahr = datenstand ? datenstand.slice(0, 4) : '';
 ---
 
 <!doctype html>
@@ -20,11 +25,38 @@ const { titel, beschreibung } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{titel}</title>
     {beschreibung && <meta name="description" content={beschreibung} />}
+    <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body>
+    <a class="zum-inhalt" href="#inhalt">Zum Inhalt springen</a>
+
     <div class="huelle">
-      <slot />
+      <header class="kopfzeile">
+        {
+          istStartseite ? (
+            <span class="marke">Büchereikatalog</span>
+          ) : (
+            <a class="marke" href="/">
+              Büchereikatalog
+            </a>
+          )
+        }
+      </header>
+
+      <main id="inhalt">
+        <slot />
+      </main>
+
+      <footer class="fusszeile">
+        <p>
+          {gesamtAnzahl.toLocaleString('de-AT')} Medien im Bestand.
+          {datenstand && <> Datenstand {datenstand.split('-').reverse().join('.')}.</>}
+        </p>
+        <p class="klein">
+          Digitaler Index der Bücherei{jahr && <> · {jahr}</>}
+        </p>
+      </footer>
     </div>
   </body>
 </html>
@@ -33,5 +65,53 @@ const { titel, beschreibung } = Astro.props;
   .huelle {
     max-width: var(--breite-inhalt);
     margin-inline: auto;
+    padding: 0 var(--abstand-3);
+    /* Fußzeile bleibt unten, auch wenn wenig Inhalt da ist. */
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .kopfzeile {
+    padding: var(--abstand-4) 0 var(--abstand-3);
+    border-bottom: 1px solid var(--farbe-rand);
+  }
+
+  .marke {
+    display: inline-block;
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--farbe-text-leise);
+    text-decoration: none;
+  }
+
+  a.marke:hover {
+    color: var(--farbe-akzent);
+  }
+
+  main {
+    flex: 1;
+    padding: var(--abstand-5) 0 var(--abstand-6);
+  }
+
+  .fusszeile {
+    padding: var(--abstand-4) 0 var(--abstand-5);
+    border-top: 1px solid var(--farbe-rand);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .fusszeile p {
+    margin: 0;
+  }
+
+  .fusszeile .klein {
+    margin-top: var(--abstand-1);
+    font-size: var(--text-winzig);
   }
 </style>

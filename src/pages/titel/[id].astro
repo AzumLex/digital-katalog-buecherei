@@ -1,0 +1,388 @@
+---
+/**
+ * Detailseite eines Titels — eine Seite je Eintrag, alle beim Build erzeugt.
+ *
+ * Grundsatz: Nur zeigen, was da ist. Fehlende Felder erzeugen keine Zeile, kein
+ * „unbekannt", keinen Gedankenstrich. Die Felder mit führendem Unterstrich
+ * (`_quelle`, `_pruefen`) sind Arbeitsmaterial des Imports und bleiben unsichtbar.
+ */
+import type { GetStaticPaths } from 'astro';
+import Grundgeruest from '../../layouts/Grundgeruest.astro';
+import { alleMedien, reihenIndex, spartenNachName, type Medium } from '../../lib/daten';
+import { autorenblockVon } from '../../lib/autoren';
+import {
+  angabenAusgabe,
+  angabenBestand,
+  angabenInhalt,
+  autorAnzeige,
+  bandText,
+} from '../../lib/anzeige';
+import { autorAnker, spartenPfad, titelPfad } from '../../lib/pfade';
+import { STANDARD_SORTIERUNG, sortiereReihe } from '../../lib/sortierung';
+
+export const getStaticPaths = (() =>
+  alleMedien.map((medium) => ({
+    params: { id: medium.id },
+    props: { medium },
+  }))) satisfies GetStaticPaths;
+
+interface Props {
+  medium: Medium;
+}
+
+const { medium } = Astro.props;
+
+const bezeichnung = spartenNachName.get(medium.sparte)?.bezeichnung ?? medium.sparte;
+const autor = autorAnzeige(medium);
+
+const inhalt = angabenInhalt(medium);
+const ausgabe = angabenAusgabe(medium);
+const bestand = angabenBestand(medium);
+
+/** Alle Bände der Reihe, sofern es überhaupt mehr als einen gibt. */
+const reihe = medium.reihe ? (reihenIndex.get(medium.reihe) ?? []) : [];
+const baende = reihe.length > 1 ? sortiereReihe(reihe) : [];
+
+/** Ziel für „weitere Titel von …" — der Block des Autors in der Sparteliste. */
+const block = autorenblockVon(medium);
+const autorenLink =
+  block && block.anzahl > 1
+    ? `${spartenPfad(block.sparte, STANDARD_SORTIERUNG, block.seite)}#${autorAnker(block.schluessel)}`
+    : undefined;
+
+const seitenTitel = [medium.titel, autor].filter(Boolean).join(' — ');
+---
+
+<Grundgeruest
+  titel={`${seitenTitel} · Büchereikatalog`}
+  beschreibung={[medium.titel, autor, medium.reihe].filter(Boolean).join(' · ')}
+>
+  <nav class="brotkrumen" aria-label="Pfad">
+    <a href="/">Katalog</a> <span aria-hidden="true">›</span>
+    <a href={spartenPfad(medium.sparte)}>{bezeichnung}</a>
+  </nav>
+
+  <article class="titelblatt">
+    <header class="kopf">
+      {
+        medium.reihe && (
+          <p class="reihe">
+            {medium.reihe}
+            {bandText(medium) && <> · {bandText(medium)}</>}
+          </p>
+        )
+      }
+
+      <h1 class="haupttitel">{medium.titel}</h1>
+
+      {medium.untertitel && <p class="untertitel">{medium.untertitel}</p>}
+
+      {
+        autor && (
+          <p class="autor">
+            {autorenLink ? <a href={autorenLink}>{autor}</a> : autor}
+          </p>
+        )
+      }
+
+      {
+        medium.weitere_autoren && medium.weitere_autoren.length > 0 && (
+          <p class="weitere">Mit {medium.weitere_autoren.join(', ')}</p>
+        )
+      }
+    </header>
+
+    {
+      /* Die Figur ist bei Tonies das Erkennungsmerkmal im Regal — Kinder suchen den
+         gelben Löwen, nicht den Titel. Deshalb steht sie hier oben und nicht unten
+         in der Angabenliste. */
+      medium.figur && (
+        <aside class="figur" aria-label="Figur">
+          <span class="figur-label">Figur</span>
+          <p class="figur-text">{medium.figur}</p>
+        </aside>
+      )
+    }
+
+    {
+      inhalt.length > 0 && (
+        <section class="angaben" aria-labelledby="inhalt-titel">
+          <h2 id="inhalt-titel" class="abschnitt">Inhalt</h2>
+          <dl>
+            {inhalt.map((angabe) => (
+              <div class="zeile">
+                <dt>{angabe.label}</dt>
+                <dd>{angabe.wert}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )
+    }
+
+    {
+      ausgabe.length > 0 && (
+        <section class="angaben" aria-labelledby="ausgabe-titel">
+          <h2 id="ausgabe-titel" class="abschnitt">Ausgabe</h2>
+          <dl>
+            {ausgabe.map((angabe) => (
+              <div class="zeile">
+                <dt>{angabe.label}</dt>
+                <dd>{angabe.wert}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )
+    }
+
+    {
+      bestand.length > 0 && (
+        <section class="angaben" aria-labelledby="bestand-titel">
+          <h2 id="bestand-titel" class="abschnitt">In der Bücherei</h2>
+          <dl>
+            {bestand.map((angabe) => (
+              <div class="zeile">
+                <dt>{angabe.label}</dt>
+                <dd>{angabe.wert}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )
+    }
+
+    {
+      baende.length > 0 && (
+        <section class="reihenblock" aria-labelledby="reihe-titel">
+          <h2 id="reihe-titel" class="abschnitt">Die Reihe „{medium.reihe}"</h2>
+          <ol class="baende">
+            {baende.map((band) => {
+              const istDieser = band.id === medium.id;
+              return (
+                <li class:list={['band', { aktuell: istDieser }]}>
+                  <span class="bandnummer">{band.band ?? '·'}</span>
+                  {istDieser ? (
+                    <span class="bandtitel" aria-current="page">
+                      {band.titel}
+                      <span class="marker"> — diese Seite</span>
+                    </span>
+                  ) : (
+                    <a class="bandtitel" href={titelPfad(band.id)}>
+                      {band.titel}
+                    </a>
+                  )}
+                  {band.jahr && <span class="bandjahr">{band.jahr}</span>}
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      )
+    }
+
+    {
+      autorenLink && autor && (
+        <p class="weiterlesen">
+          <a href={autorenLink}>weitere Titel von {autor}</a>
+        </p>
+      )
+    }
+  </article>
+</Grundgeruest>
+
+<style>
+  .brotkrumen {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .brotkrumen span {
+    margin: 0 0.25em;
+  }
+
+  .kopf {
+    margin: var(--abstand-3) 0 var(--abstand-5);
+    padding-bottom: var(--abstand-3);
+    border-bottom: 2px solid var(--farbe-rand-kraeftig);
+  }
+
+  .kopf > * {
+    margin: 0;
+  }
+
+  .reihe {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    letter-spacing: 0.02em;
+    color: var(--farbe-text-leise);
+  }
+
+  .haupttitel {
+    margin-top: var(--abstand-1);
+    font-size: var(--text-titel);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .untertitel {
+    margin-top: var(--abstand-2);
+    font-size: var(--text-sehr-gross);
+    font-style: italic;
+    line-height: var(--zeilenhoehe-eng);
+    color: var(--farbe-text-leise);
+  }
+
+  .autor {
+    margin-top: var(--abstand-3);
+    font-size: var(--text-gross);
+  }
+
+  .weitere {
+    margin-top: var(--abstand-1);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .figur {
+    margin-bottom: var(--abstand-5);
+    padding: var(--abstand-3) var(--abstand-4);
+    background: var(--farbe-akzent-leise);
+    border-left: 3px solid var(--farbe-akzent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+  }
+
+  .figur-label {
+    display: block;
+    font-family: var(--schrift-ui);
+    font-size: var(--text-winzig);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--farbe-akzent);
+  }
+
+  .figur-text {
+    margin: var(--abstand-1) 0 0;
+    font-size: var(--text-sehr-gross);
+    line-height: var(--zeilenhoehe-eng);
+  }
+
+  .angaben,
+  .reihenblock {
+    margin-bottom: var(--abstand-5);
+  }
+
+  .abschnitt {
+    margin: 0 0 var(--abstand-3);
+    padding-bottom: var(--abstand-2);
+    border-bottom: 1px solid var(--farbe-rand);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--farbe-text-leise);
+  }
+
+  dl {
+    margin: 0;
+  }
+
+  /* Am Handy untereinander, ab Tablet zweispaltig mit fester Beschriftungsspalte. */
+  .zeile {
+    padding: var(--abstand-2) 0;
+    border-bottom: 1px solid var(--farbe-rand);
+  }
+
+  .zeile:last-child {
+    border-bottom: 0;
+  }
+
+  dt {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: break-word;
+  }
+
+  @media (min-width: 34rem) {
+    .zeile {
+      display: grid;
+      grid-template-columns: 10rem 1fr;
+      gap: var(--abstand-3);
+      align-items: baseline;
+    }
+  }
+
+  .baende {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .band {
+    display: grid;
+    grid-template-columns: 2.25rem 1fr auto;
+    gap: var(--abstand-2);
+    align-items: baseline;
+    padding: var(--abstand-2) 0;
+    border-bottom: 1px solid var(--farbe-rand);
+  }
+
+  .band:last-child {
+    border-bottom: 0;
+  }
+
+  .bandnummer {
+    font-family: var(--schrift-zahl);
+    font-size: var(--text-klein);
+    font-variant-numeric: tabular-nums;
+    color: var(--farbe-text-leise);
+    text-align: right;
+  }
+
+  .bandtitel {
+    color: inherit;
+  }
+
+  a.bandtitel {
+    color: var(--farbe-akzent);
+    text-decoration: none;
+  }
+
+  a.bandtitel:hover {
+    text-decoration: underline;
+  }
+
+  .band.aktuell {
+    background: var(--farbe-flaeche-leise);
+  }
+
+  .marker {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .bandjahr {
+    font-family: var(--schrift-zahl);
+    font-size: var(--text-klein);
+    font-variant-numeric: tabular-nums;
+    color: var(--farbe-text-leise);
+  }
+
+  .weiterlesen {
+    margin: 0;
+    padding-top: var(--abstand-3);
+    border-top: 1px solid var(--farbe-rand);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-normal);
+  }
+</style>
