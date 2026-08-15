@@ -1,0 +1,37 @@
+---
+/**
+ * Gemeinsames Seitengerüst: <head>, Grundstyles, zentrierter Inhaltsbereich.
+ * Jede Seite im Katalog nutzt dieses Layout.
+ */
+import '../styles/global.css';
+
+interface Props {
+  titel: string;
+  beschreibung?: string;
+}
+
+const { titel, beschreibung } = Astro.props;
+---
+
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{titel}</title>
+    {beschreibung && <meta name="description" content={beschreibung} />}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div class="huelle">
+      <slot />
+    </div>
+  </body>
+</html>
+
+<style>
+  .huelle {
+    max-width: var(--breite-inhalt);
+    margin-inline: auto;
+  }
+</style>

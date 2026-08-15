@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buecherei.example/schema/medium.schema.json",
+  "title": "Medium (Bestandseinheit der Bücherei)",
+  "description": "Ein Datensatz pro Exemplar-Titel. Bewusst so entworfen, dass er später ohne Informationsverlust in ein Bibliothekssystem (bibliotheca o. ä.) importiert werden kann. Unbekannte Felder werden weggelassen, nicht mit null/leer gefüllt.",
+  "type": "object",
+  "required": ["id", "sparte", "medium", "titel", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z]{3}-[a-z0-9-]+$",
+      "description": "Stabiler, menschenlesbarer Schlüssel. Darf NIE geändert werden, auch nicht bei Titelkorrekturen — URLs und spätere Ausleihdatensätze hängen daran."
+    },
+    "sparte": {
+      "type": "string",
+      "enum": ["romane", "sachbuecher", "kinderbuecher", "kinder-sachbuecher", "tonies", "spiele", "cds"],
+      "description": "Oberste Gliederungsebene der Bücherei. Bestimmt Navigation und verfügbare Filter."
+    },
+    "medium": {
+      "type": "string",
+      "enum": ["Buch", "Tonie", "CD", "Spiel", "DVD", "Zeitschrift"],
+      "description": "Physische Form. Getrennt von 'sparte', weil z. B. ein Sachbuch auch als CD vorliegen kann."
+    },
+
+    "titel": { "type": "string", "minLength": 1 },
+    "untertitel": { "type": "string" },
+    "reihe": { "type": "string", "description": "Serientitel, z. B. 'Altaussee-Krimi'." },
+    "band": { "type": "integer", "minimum": 0 },
+
+    "autor": { "type": "string", "description": "Anzeigeform, 'Vorname Nachname'." },
+    "autor_nachname": { "type": "string", "description": "Sortierschlüssel." },
+    "autor_vorname": { "type": "string" },
+    "weitere_autoren": { "type": "array", "items": { "type": "string" } },
+    "uebersetzung": { "type": "string" },
+    "originalsprache": { "type": "string" },
+
+    "verlag": { "type": "string" },
+    "ort": { "type": "string" },
+    "jahr": { "type": "integer", "minimum": 1800, "maximum": 2100 },
+    "auflage": { "type": "string" },
+    "seiten": { "type": "integer", "minimum": 1 },
+    "isbn": {
+      "type": "string",
+      "pattern": "^(97[89][0-9]{10}|[0-9]{9}[0-9X])$",
+      "description": "Nur Ziffern, ohne Bindestriche. ISBN-10 oder ISBN-13. Dient als Schlüssel für spätere Coveranfragen (OpenLibrary/DNB)."
+    },
+    "isbn_formatiert": { "type": "string", "description": "ISBN wie im Quelldokument, für die Anzeige." },
+    "einband": { "type": "string", "enum": ["kartoniert", "broschiert", "fest gebunden", "Taschenbuch", "Spiralbindung"] },
+    "preis_eur": { "type": "number", "minimum": 0 },
+    "waehrung_original": { "type": "string", "description": "Gesetzt, wenn der Quellpreis nicht in Euro war (z. B. 'ATS')." },
+
+    "art": { "type": "string", "description": "Nur Tonies/CDs: 'Hörspiel', 'Hörbuch', 'Hörspiel mit Liedern' …" },
+    "laufzeit_min": { "type": "integer", "minimum": 1 },
+    "figur": { "type": "string", "description": "Nur Tonies: Beschreibung der Figur — das ist das Merkmal, an dem Kinder den Tonie erkennen." },
+    "spieler_min": { "type": "integer", "minimum": 1 },
+    "spieler_max": { "type": "integer", "minimum": 1 },
+    "spieldauer_min": { "type": "integer", "minimum": 1 },
+
+    "alter_ab": { "type": "integer", "minimum": 0, "maximum": 18 },
+    "genres": { "type": "array", "items": { "type": "string" } },
+    "sprache": { "type": "string", "default": "de" },
+    "notiz": { "type": "string", "description": "Freitext aus der Quelle, z. B. 'Auch für jugendl. Leser ab 15'." },
+
+    "bestand": { "type": "integer", "minimum": 0, "default": 1, "description": "Anzahl vorhandener Exemplare." },
+    "status": {
+      "type": "string",
+      "enum": ["verfuegbar", "ausgeliehen", "vermisst", "ausgeschieden"],
+      "default": "verfuegbar",
+      "description": "Im statischen Katalog vorerst immer 'verfuegbar'. Das Feld existiert jetzt schon, damit die spätere Ausleihverwaltung keine Datenmigration braucht."
+    },
+    "standort": { "type": "string", "description": "Regal/Raum, z. B. 'Regal 4 links'." },
+    "signatur": { "type": "string", "description": "Aufstellungssignatur, falls vorhanden." },
+    "erfasst_am": { "type": ["string", "null"], "format": "date", "description": "ISO-Datum der Aufnahme in den Bestand. Grundlage für den 'Neu'-Filter — NICHT das Erscheinungsjahr verwenden." },
+    "cover_url": { "type": ["string", "null"], "description": "Relativer Pfad zu einem lokalen Coverbild oder null." },
+
+    "suchtext": { "type": "string", "description": "Vorberechnetes Suchfeld. Wird beim Build erzeugt, nicht von Hand gepflegt." },
+    "_quelle": { "type": "string", "description": "Originalzeile aus Word/Excel. Bleibt als Beleg erhalten, wird nicht angezeigt." },
+    "_pruefen": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Automatisch gesetzte Warnungen aus dem Import (z. B. 'keine_isbn'). Arbeitsliste für die manuelle Nachkontrolle."
+    }
+  }
+}

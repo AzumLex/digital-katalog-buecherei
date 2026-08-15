@@ -1,0 +1,146 @@
+---
+/**
+ * Startseite — Stand Phase 1.
+ *
+ * Zeigt bewusst nur die Anzahl je Sparte. Damit ist belegt, dass die Datenpipeline
+ * steht: JSON gelesen, gegen das Schema geprüft, Typen vergeben, ids eindeutig.
+ * Suche, Filter und Detailseiten kommen in den nächsten Phasen dazu.
+ */
+import Grundgeruest from '../layouts/Grundgeruest.astro';
+import { spartenUebersicht, gesamtAnzahl, datenstand } from '../lib/daten';
+
+const datenstandLesbar = datenstand
+  ? new Date(datenstand).toLocaleDateString('de-AT', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    })
+  : 'unbekannt';
+---
+
+<Grundgeruest
+  titel="Büchereikatalog — Bestand"
+  beschreibung="Digitaler Index der Büchereimedien, nach Sparten gezählt."
+>
+  <header class="kopf">
+    <h1>Büchereikatalog</h1>
+    <p class="unterzeile">
+      {gesamtAnzahl.toLocaleString('de-AT')} Medien im Bestand · Datenstand {datenstandLesbar}
+    </p>
+  </header>
+
+  <table class="sparten">
+    <caption class="sr-only">Anzahl der Medien je Sparte</caption>
+    <thead>
+      <tr>
+        <th scope="col">Sparte</th>
+        <th scope="col" class="zahl">Anzahl</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        spartenUebersicht.map((eintrag) => (
+          <tr class:list={[{ leer: eintrag.anzahl === 0 }]}>
+            <th scope="row">{eintrag.bezeichnung}</th>
+            <td class="zahl">{eintrag.anzahl.toLocaleString('de-AT')}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+    <tfoot>
+      <tr>
+        <th scope="row">Gesamt</th>
+        <td class="zahl">{gesamtAnzahl.toLocaleString('de-AT')}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <p class="hinweis">
+    Sparten ohne Einträge sind bereits angelegt und warten auf ihre Daten.
+  </p>
+</Grundgeruest>
+
+<style>
+  .kopf {
+    margin-bottom: var(--abstand-5);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: var(--text-titel);
+    letter-spacing: -0.01em;
+  }
+
+  .unterzeile {
+    margin: var(--abstand-2) 0 0;
+    color: var(--farbe-text-leise);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .sparten {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--farbe-flaeche);
+    border: 1px solid var(--farbe-rand);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .sparten th,
+  .sparten td {
+    padding: var(--abstand-3);
+    text-align: left;
+    border-bottom: 1px solid var(--farbe-rand);
+  }
+
+  .sparten thead th {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--farbe-text-leise);
+    background: var(--farbe-akzent-leise);
+  }
+
+  .sparten tbody th {
+    font-weight: 400;
+  }
+
+  .sparten tbody tr.leer th,
+  .sparten tbody tr.leer td {
+    color: var(--farbe-text-leise);
+  }
+
+  .sparten tfoot th,
+  .sparten tfoot td {
+    border-bottom: 0;
+    border-top: 2px solid var(--farbe-rand);
+    font-weight: 600;
+  }
+
+  .zahl {
+    text-align: right;
+    font-family: var(--schrift-zahl);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hinweis {
+    margin-top: var(--abstand-4);
+    color: var(--farbe-text-leise);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>

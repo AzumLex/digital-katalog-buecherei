@@ -1,0 +1,2 @@
+# Wird nur von scripts/validate.py gebraucht (npm run validate).
+jsonschema>=4.20
