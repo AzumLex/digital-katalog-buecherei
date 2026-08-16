@@ -1,0 +1,87 @@
+---
+/**
+ * Seite für Adressen, die es nicht (mehr) gibt.
+ *
+ * Statt einer Sackgasse steht hier die echte Suche — dieselbe Komponente wie auf der
+ * Startseite, samt Skript. Wer über einen alten Link oder einen Tippfehler hier
+ * landet, kann direkt weitersuchen, statt erst zur Startseite zurückzumüssen.
+ */
+import Grundgeruest from '../layouts/Grundgeruest.astro';
+import Spartenkachel from '../components/Spartenkachel.astro';
+import Suchleiste from '../components/Suchleiste.astro';
+import { spartenUebersicht } from '../lib/daten';
+---
+
+<Grundgeruest
+  titel="Seite nicht gefunden · Büchereikatalog"
+  beschreibung="Diese Adresse gibt es im Büchereikatalog nicht. Hier geht es zur Suche und zu den Sparten."
+  nichtIndexieren
+>
+  <h1 class="ueberschrift">Diese Seite gibt es nicht</h1>
+  <p class="einleitung">
+    Vielleicht wurde der Titel umbenannt oder die Adresse hat einen Tippfehler. Suchen Sie hier
+    einfach direkt weiter.
+  </p>
+
+  <Suchleiste />
+
+  <div id="stoebern">
+    <section aria-labelledby="sparten-titel">
+      <h2 id="sparten-titel" class="abschnitt">Oder in einer Sparte stöbern</h2>
+      <div class="kacheln">
+        {
+          spartenUebersicht.map((eintrag) => (
+            <Spartenkachel
+              sparte={eintrag.sparte}
+              bezeichnung={eintrag.bezeichnung}
+              anzahl={eintrag.anzahl}
+            />
+          ))
+        }
+      </div>
+    </section>
+  </div>
+</Grundgeruest>
+
+<style>
+  .ueberschrift {
+    margin: 0;
+    font-size: var(--text-titel);
+    letter-spacing: -0.01em;
+  }
+
+  .einleitung {
+    margin: var(--abstand-2) 0 var(--abstand-5);
+    color: var(--farbe-text-leise);
+  }
+
+  .abschnitt {
+    margin: 0 0 var(--abstand-3);
+    padding-bottom: var(--abstand-2);
+    border-bottom: 1px solid var(--farbe-rand);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--farbe-text-leise);
+  }
+
+  .kacheln {
+    display: grid;
+    gap: var(--abstand-2);
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 30rem) {
+    .kacheln {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 44rem) {
+    .kacheln {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+</style>

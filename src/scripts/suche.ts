@@ -243,12 +243,12 @@ export function starteSuche(): void {
         treffer.length === 1 ? '1 Treffer für ' : `${treffer.length.toLocaleString('de-AT')} Treffer für `,
       ),
     );
-    kopf.appendChild(element('span', 'ergebnis-anfrage', `„${anfrage}"`));
+    kopf.appendChild(element('span', 'ergebnis-anfrage', `„${anfrage}“`));
     ausgabe!.appendChild(kopf);
 
     if (treffer.length === 0) {
       ausgabe!.appendChild(baueKeineTreffer(anfrage));
-      setzeStatus(`Keine Treffer für „${anfrage}".`);
+      setzeStatus(`Keine Treffer für „${anfrage}“.`);
       return;
     }
 

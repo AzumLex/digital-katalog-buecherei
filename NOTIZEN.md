@@ -267,3 +267,39 @@ einheitlicher Reihenname (z. B. `Das Spiel`) würde das beheben.
   sind sie schlicht Rauschen.
 - **`spieler_min`, `spieler_max`, `spieldauer_min`** kommen im Bestand kein einziges Mal vor.
   Erwartbar: Die Sparte `spiele` ist noch leer. Der Katalog kann die Felder bereits anzeigen.
+
+---
+
+## 13. In vier `verlag`-Feldern steht der halbe Rest der Quellzeile
+
+Aufgefallen beim Erzeugen der Meta-Beschreibungen für Suchmaschinen — dort steht der
+Verlag im Klartext und fällt sofort auf.
+
+| id | `verlag` enthält |
+|---|---|
+| `rom-komarek-blumen-fuer-polt-9548` | `Haymon 2000. 190 S. ISBN 3‑85218-321-9 fest geb. ATS 218,00/` |
+| `rom-sendker-das-herzenhoeren-0015` | `Heyne, 13. Auflage. Copyright d. deutschsprachigen Ausgabe 2002 by Blessing, München` |
+| `rom-riley-die-schattenschwester-7455` | `Goldmann in der Verlagsgruppe Random House 2016. Taschenbuchausgabe März` |
+| `rom-cognetti-acht-berge-3448` | `Penguin in der Verlagsgruppe Random House 2017, 6. Auf` |
+
+Beim ersten Fall ist die Ursache gut sichtbar: Die ISBN im Word-Dokument ist mit einem
+**geschützten Bindestrich** (U+2011 `‑`) statt eines normalen geschrieben. Das Muster des
+Imports erkannte sie nicht, deshalb lief alles ab „Haymon" ungetrennt ins Verlagsfeld —
+und `jahr`, `seiten`, `isbn` blieben leer. Genau dieser Eintrag trägt folgerichtig die
+Vermerke `keine_isbn` und `kein_jahr`.
+
+Zu beheben in `scripts/import/01_romane_parsen.py`, indem vor dem Zerlegen alle
+Bindestrich-Varianten (`‑`, `–`, `—`) auf den normalen Bindestrich normalisiert werden —
+dieselbe Ursache wie bei den Tonies in Punkt 5. Danach den Import wiederholen.
+
+Nur echte Verlagsnamen bleiben, die lang aussehen, aber stimmen: „S. Fischer",
+„Limes in der Verlagsgruppe Penguin Random House", „btb in d. Penguin Random House
+Verlagsgruppe GmbH".
+
+---
+
+## 14. Ein doppeltes Kaufmanns-Und
+
+`rom-gisdottir-verschworen-8296` hat `"verlag": "Kiepenheuer & & Witsch"`. Richtig wäre
+„Kiepenheuer & Witsch". Betrifft genau diesen einen Eintrag und ist rein kosmetisch — der
+Titel wird trotzdem gefunden, weil die Suche an Satzzeichen zerlegt.

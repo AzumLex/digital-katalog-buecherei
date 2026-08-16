@@ -235,7 +235,7 @@ export function starteFilter(): void {
     if (auswahl.text.trim()) {
       const marke = element('button', 'filter-marke');
       marke.type = 'button';
-      marke.appendChild(document.createTextNode(`Suche: „${auswahl.text.trim()}"`));
+      marke.appendChild(document.createTextNode(`Suche: „${auswahl.text.trim()}“`));
       marke.appendChild(element('span', 'weg', '×'));
       marke.addEventListener('click', entferne(() => (auswahl.text = '')));
       marken!.appendChild(marke);

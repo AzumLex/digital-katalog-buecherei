@@ -19,20 +19,28 @@ import {
   type Suchdaten,
 } from './suchoptionen.ts';
 
+/**
+ * Ein Dokument im Suchindex.
+ *
+ * Fast alles ist optional, und das ist wörtlich zu nehmen: Felder ohne Wert fehlen
+ * ganz, statt als leerer Text dazustehen. MiniSearch würde `""` sonst mitspeichern —
+ * bei knapp tausend Einträgen und mehreren Feldern sind das zweistellige Kilobyte
+ * für Angaben, die es gar nicht gibt.
+ */
 export interface Suchdokument {
   id: string;
   sparte: Sparte;
   // durchsuchte Felder
   titel: string;
-  autor: string;
-  reihe: string;
-  untertitel: string;
-  verlag: string;
-  genres: string;
-  figur: string;
-  teile: string;
+  autor?: string;
+  reihe?: string;
+  untertitel?: string;
+  verlag?: string;
+  genres?: string;
+  figur?: string;
+  teile?: string;
   // gespeicherte Felder für die Trefferanzeige
-  autorAnzeige: string;
+  autorAnzeige?: string;
   band?: number;
   art?: string;
   laufzeit_min?: number;
@@ -224,15 +232,31 @@ export function baueSuchtexte(medien: Medium[] = alleMedien): Map<string, string
   return texte;
 }
 
+/**
+ * Leere Texte zu `undefined` machen.
+ *
+ * `rohtexte` liefert für fehlende Felder den leeren Text, damit die Zerlegung damit
+ * rechnen kann. Im Dokument selbst hat er nichts verloren: MiniSearch speichert ihn
+ * sonst mit, und `"reihe":"",` × 987 Einträge × mehrere Felder summiert sich auf
+ * zweistellige Kilobyte — für Angaben, die es gar nicht gibt.
+ */
+function ohneLeere<T extends Record<string, string>>(felder: T): { [K in keyof T]: string | undefined } {
+  return Object.fromEntries(
+    Object.entries(felder).map(([name, wert]) => [name, wert === '' ? undefined : wert]),
+  ) as { [K in keyof T]: string | undefined };
+}
+
 export function baueDokumente(medien: Medium[] = alleMedien): Suchdokument[] {
   const { wortschatz } = analysiereWorte(medien);
 
   return medien.map((m) => ({
     id: m.id,
     sparte: m.sparte,
-    ...rohtexte(m),
-    teile: baueTeile(m, wortschatz),
-    autorAnzeige: autorAnzeige(m) ?? '',
+    ...ohneLeere(rohtexte(m)),
+    // Nach dem Spread, weil der Titel als Pflichtfeld immer gesetzt ist.
+    titel: m.titel,
+    teile: baueTeile(m, wortschatz) || undefined,
+    autorAnzeige: autorAnzeige(m) || undefined,
     band: m.band,
     art: m.art,
     laufzeit_min: m.laufzeit_min,
@@ -240,7 +264,7 @@ export function baueDokumente(medien: Medium[] = alleMedien): Suchdokument[] {
     ort: m.ort,
     jahr: m.jahr,
     seiten: m.seiten,
-  })) as Suchdokument[];
+  }));
 }
 
 export function baueSuchdaten(medien: Medium[] = alleMedien): Suchdaten {

@@ -1,0 +1,75 @@
+name: Daten und Build prüfen
+
+# Läuft bei jedem Push und bei jedem Pull Request. Schlägt die Datenprüfung fehl,
+# schlägt der ganze Lauf fehl — und damit auch die Bedingung, die für einen Merge
+# nach main erfüllt sein muss (siehe README, Abschnitt „Veröffentlichen").
+on:
+  push:
+  pull_request:
+
+# Wird während eines laufenden Durchgangs erneut gepusht, wird der alte abgebrochen.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruefen:
+    name: Daten, Build und Prüfungen
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Abhängigkeiten installieren
+        run: |
+          npm ci
+          pip install -r requirements.txt
+
+      # Zuerst und für sich allein: Bei kaputten Daten soll die Fehlermeldung ganz
+      # oben stehen und nicht in der Build-Ausgabe untergehen.
+      - name: Daten gegen das Schema prüfen
+        run: npm run validate
+
+      - name: Typen prüfen
+        run: npm run check
+
+      - name: Website bauen
+        run: npm run build
+
+      - name: Suche prüfen
+        run: npm run suchtest
+
+      - name: Filter prüfen
+        run: npm run filtertest
+
+      # Damit nachvollziehbar ist, wie groß die Seite geworden ist.
+      - name: Umfang berichten
+        if: always()
+        run: |
+          echo "### Umfang des Builds" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Datei | roh | gzip |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---:|---:|" >> "$GITHUB_STEP_SUMMARY"
+          for datei in dist/suchindex.json dist/liste/romane.json dist/index.html; do
+            if [ -f "$datei" ]; then
+              roh=$(wc -c < "$datei")
+              gz=$(gzip -c "$datei" | wc -c)
+              echo "| $datei | $((roh / 1024)) KB | $((gz / 1024)) KB |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Seiten insgesamt: $(find dist -name index.html | wc -l)" >> "$GITHUB_STEP_SUMMARY"

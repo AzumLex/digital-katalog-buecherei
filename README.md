@@ -224,7 +224,7 @@ Icon-Bibliothek, keine Animationen außer kurzen Farbübergängen (die bei
 
 ---
 
-## Einen Titel hinzufügen
+## Wo der Bestand liegt
 
 Alle Medien stehen in `src/data/` — eine Datei je Sparte:
 
@@ -237,6 +237,149 @@ src/data/tonies.json              Tonies
 src/data/spiele.json              Spiele
 src/data/cds.json                 CDs
 ```
+
+---
+
+## Einen Titel eintragen und veröffentlichen — ganz ohne Installation
+
+**Diese Anleitung setzt nichts voraus außer einem Browser und einem GitHub-Konto.** Es muss
+nichts installiert werden, es wird kein Programm gestartet. Wer schon einmal ein Formular
+im Internet ausgefüllt hat, schafft das.
+
+Was am Ende passiert: Sie tragen den Titel ein, GitHub prüft die Daten automatisch, und
+wenn alles stimmt, ist der Titel ein paar Minuten später im Katalog zu sehen.
+
+### Vorbereitung (einmalig)
+
+1. Auf [github.com](https://github.com) ein Konto anlegen, falls noch keines besteht.
+2. Sich bei der Person melden, die das Projekt eingerichtet hat, damit sie Ihnen
+   Schreibrechte gibt. Ohne diese Rechte können Sie zwar Änderungen vorschlagen, aber
+   nicht selbst veröffentlichen.
+
+### Schritt 1 — Die richtige Datei öffnen
+
+Im Projekt auf GitHub zum Ordner `src/data` gehen und die Datei anklicken, die zur Sparte
+passt:
+
+| Was Sie eintragen wollen | Datei |
+|---|---|
+| Einen Roman | `romane.json` |
+| Einen Tonie | `tonies.json` |
+| Ein Sachbuch | `sachbuecher.json` |
+| Ein Kinderbuch | `kinderbuecher.json` |
+| Ein Kinder-Sachbuch | `kinder-sachbuecher.json` |
+| Ein Spiel | `spiele.json` |
+| Eine CD | `cds.json` |
+
+### Schritt 2 — In den Bearbeitungsmodus
+
+Rechts oben über dem Text steht ein **Stift-Symbol** (Tooltip „Edit this file"). Anklicken.
+Jetzt lässt sich der Text bearbeiten.
+
+> Bei `romane.json` zeigt GitHub zuerst nur einen Hinweis, dass die Datei groß ist. Dann
+> auf **„Load more"** oder direkt auf den Stift klicken.
+
+### Schritt 3 — Einen bestehenden Eintrag kopieren
+
+**Nicht von Hand tippen — kopieren.** So kann bei den Anführungszeichen und Kommas nichts
+schiefgehen.
+
+1. Suchen Sie einen Eintrag, der dem neuen ähnlich ist (mit `Strg+F` bzw. `Cmd+F` im
+   Bearbeitungsfeld).
+2. Markieren Sie ihn von der öffnenden `{` bis zur schließenden `}` — **einschließlich**
+   des Kommas dahinter.
+3. Kopieren (`Strg+C`), Cursor direkt dahinter setzen, einfügen (`Strg+V`).
+
+Jetzt steht derselbe Eintrag zweimal untereinander. Den **zweiten** überschreiben Sie mit
+den Angaben des neuen Titels.
+
+### Schritt 4 — Die Angaben eintragen
+
+Vier Regeln, mehr braucht es nicht:
+
+- **Was Sie nicht wissen, löschen Sie ganz.** Also die komplette Zeile — nicht `""` oder
+  `0` stehen lassen. Der Katalog zeigt einfach nichts an, wo nichts ist.
+- **Text steht in Anführungszeichen, Zahlen nicht.** `"titel": "Der lange Sommer"`, aber
+  `"jahr": 2026`.
+- **Nach jeder Zeile ein Komma — außer nach der letzten** vor der `}`.
+- **Die `id` muss neu sein.** Muster: Sparten-Kürzel, Nachname, Titel, die letzten vier
+  Ziffern der ISBN — alles klein, Umlaute ausgeschrieben, Leerzeichen als Bindestrich:
+  `rom-mustermann-der-lange-sommer-1234`. Die Kürzel stehen weiter unten unter
+  „Die Regeln für `id`".
+
+**Tragen Sie heute als `erfasst_am` ein** — im Format `"2026-08-16"` (Jahr-Monat-Tag).
+Daran hängen der Filter „Neu im Bestand" und der Abschnitt „Neu im Bestand" auf der
+Startseite. Das Erscheinungsjahr taugt dafür nicht: Ein antiquarisch gekauftes Buch von
+1975 ist neu im Bestand, ein 2026 erschienener Titel aus dem Vorjahr nicht.
+
+### Schritt 5 — Die Zahl ganz oben erhöhen
+
+Ganz oben in der Datei steht eine Zeile wie:
+
+```json
+  "anzahl": 806,
+```
+
+Diese Zahl um eins erhöhen — aus `806` wird `807`. **Das ist der Schritt, der am
+häufigsten vergessen wird.** Die Prüfung fängt es ab, aber sie kostet Sie sonst eine
+Runde.
+
+### Schritt 6 — Speichern
+
+Rechts oben auf den grünen Knopf **„Commit changes…"** klicken. Es öffnet sich ein
+Fenster:
+
+- **Oberes Feld:** kurz beschreiben, was Sie getan haben, z. B.
+  `Neuer Roman: Der lange Sommer (Mustermann)`.
+- **Darunter** die Auswahl stehen lassen bei **„Commit directly to the `main` branch"**.
+- Auf **„Commit changes"** klicken.
+
+### Schritt 7 — Warten, bis der Haken grün ist
+
+Oben im Projekt, neben Ihrer letzten Änderung, erscheint zuerst ein **gelber Punkt** 🟡.
+GitHub prüft gerade die Daten. Nach ein bis zwei Minuten wird daraus:
+
+- **Grüner Haken** ✅ — alles in Ordnung. Der Katalog ist aktualisiert; nach ein paar
+  weiteren Minuten ist der neue Titel online. Fertig.
+- **Rotes Kreuz** ❌ — in den Daten stimmt etwas nicht. **Es ist nichts kaputtgegangen und
+  nichts veröffentlicht worden**; die Seite läuft unverändert weiter. Weiter bei
+  „Wenn etwas rot ist".
+
+### Wenn etwas rot ist
+
+Auf das rote Kreuz klicken, dann auf **„Details"**. In der Ausgabe steht die Zeile, auf die
+es ankommt — sie nennt Datei, Eintrag und Feld:
+
+```
+romane.json[806] rom-mustermann-der-lange-sommer-1234: jahr 3026 is greater than the maximum of 2100
+```
+
+Die häufigsten drei Fälle:
+
+| Meldung enthält | Was zu tun ist |
+|---|---|
+| `anzahl=806 stimmt nicht mit 807 Einträgen überein` | Schritt 5 vergessen — Zahl oben erhöhen |
+| `DOPPELTE ID: …` | Die `id` gibt es schon; eine andere wählen |
+| `is not valid under any of the given schemas` / `is a required property` | Ein Feld fehlt oder hat einen falschen Wert; das Feld steht am Anfang der Zeile |
+
+Danach dieselbe Datei erneut über den Stift bearbeiten, korrigieren, wieder speichern. Der
+Katalog bleibt die ganze Zeit online.
+
+> **Warum das so gebaut ist:** Solange die Prüfung rot ist, wird nicht veröffentlicht. Sie
+> können den öffentlichen Katalog also durch einen Tippfehler nicht kaputt machen.
+
+### Wenn Sie unsicher sind: erst vorschlagen, dann veröffentlichen
+
+Wenn Sie sich bei einem Eintrag nicht sicher sind, wählen Sie in Schritt 6 statt
+„Commit directly" die zweite Möglichkeit: **„Create a new branch for this commit and start
+a pull request"**. Dann prüft GitHub Ihre Änderung, ohne sie zu veröffentlichen, und jemand
+anderes kann sie ansehen und freigeben.
+
+---
+
+## Einen Titel hinzufügen (mit lokaler Installation)
+
+Für alle, die das Projekt ohnehin auf dem Rechner haben.
 
 ### Schritt für Schritt
 
@@ -319,45 +462,77 @@ nach dem Muster der bestehenden anlegen.
 
 ---
 
-## Veröffentlichen (Vercel)
+## Veröffentlichen (GitHub und Vercel)
 
-Der Katalog ist eine rein statische Website; Vercel erkennt Astro automatisch.
+Der Katalog ist eine rein statische Website. Alles Nötige steht im Projekt: `vercel.json`
+regt Build, Ausgabeverzeichnis, Installationsbefehl und Cache-Header, die GitHub Action in
+`.github/workflows/pruefen.yml` prüft jede Änderung.
 
 ### Einmalig einrichten
 
-1. Projekt zu GitHub pushen.
+1. Projekt zu GitHub pushen. Die Action läuft ab dem ersten Push von allein — es ist nichts
+   einzurichten.
 2. Auf [vercel.com](https://vercel.com) → **Add New… → Project** → das Repository wählen.
-3. Framework Preset: **Astro** (wird erkannt). Build Command `npm run build`,
-   Output Directory `dist`.
-4. **Install Command überschreiben** auf:
+3. **Nichts umstellen, einfach Deploy klicken.** Vercel liest `vercel.json`; Framework,
+   Build Command, Output Directory und der Installationsbefehl samt `pip install` stehen
+   dort schon.
+4. Optional, aber empfohlen: unter **Settings → Environment Variables** die Variable
+   `SITE_URL` auf die endgültige Adresse setzen (z. B. `https://buecherei-musterdorf.at`).
+   Sie landet in `sitemap.xml`, `robots.txt` und den Canonical-Angaben. Ohne sie nimmt der
+   Build automatisch die Vercel-Produktionsadresse.
 
-   ```
-   npm install && pip3 install -r requirements.txt
-   ```
+### Zwei Netze gegen kaputte Daten
 
-   Grund: `npm run build` prüft vor dem Bauen die Daten mit `scripts/validate.py`. Dafür
-   muss das Python-Paket `jsonschema` auch auf dem Build-Server vorhanden sein.
-5. **Deploy** klicken.
+**Netz 1 — beim Bauen.** `npm run build` führt vorher `npm run validate` aus. Schlägt die
+Prüfung fehl, bricht der Build ab, es wird nichts veröffentlicht, und die bisherige Seite
+läuft unverändert weiter. Das gilt auf Vercel genauso wie lokal.
+
+**Netz 2 — in GitHub.** Die Action prüft bei **jedem Push und jedem Pull Request** Daten,
+Typen, Build, Suche und Filter. Ihr Ergebnis ist der grüne Haken bzw. das rote Kreuz neben
+jeder Änderung.
+
+Damit ein roter Lauf auch einen Merge verhindert, in GitHub unter **Settings → Branches →
+Add branch protection rule** für `main` einschalten:
+
+- *Require status checks to pass before merging* → Prüfung **„Daten, Build und Prüfungen"**
+  auswählen
+- *Require a pull request before merging* (nur, wenn direkt auf `main` nicht mehr
+  geschrieben werden soll — die Anleitung oben führt bewusst den direkten Weg, weil er für
+  Nicht-Techniker einfacher ist)
+
+Ohne diese Regel bleibt Netz 1 wirksam: Ein Push mit kaputten Daten lässt den Vercel-Build
+scheitern, die alte Seite bleibt online.
 
 ### Danach
 
 Jeder Push auf `main` veröffentlicht automatisch neu. Pushes auf andere Branches erzeugen
 eine Vorschau-Adresse zum Anschauen, ohne die öffentliche Seite anzufassen.
 
-Schlagen die Datenprüfung oder die Dublettenprüfung fehl, bricht der Build ab und die
-bisherige Seite bleibt online. Kaputte Daten gehen so nie live.
+### Cache-Einstellungen
+
+In `vercel.json` hinterlegt:
+
+| Was | Cache-Control | Warum |
+|---|---|---|
+| `/_astro/*` | `max-age=31536000, immutable` (ein Jahr) | Der Dateiname enthält einen Hash des Inhalts. Ändert sich der Inhalt, ändert sich der Name — die alte Datei kann ewig liegen bleiben. |
+| `/suchindex.json`, `/liste/*.json` | `max-age=300, stale-while-revalidate=86400` | Kein Hash im Namen. Fünf Minuten, damit ein neuer Titel schnell auffindbar ist; `stale-while-revalidate` hält es trotzdem sofort verfügbar. |
+| `sitemap.xml`, `robots.txt`, `favicon.svg` | `max-age=3600` | Ändern sich selten, sind aber unkritisch. |
+| alles Übrige (HTML) | `max-age=0, must-revalidate` | HTML ist klein; so sieht niemand eine veraltete Seite mit frischen Daten. |
+
+Die letzte Regel schließt die Sonderpfade ausdrücklich aus. Das ist nötig, weil sich
+Vercel-Header-Regeln sonst gegenseitig überschreiben und eine Catch-all-Regel die
+`immutable`-Angabe wieder aufheben würde.
 
 ### Wenn der Build an Python scheitert
 
-Sollte `pip3` in der Build-Umgebung nicht verfügbar sein, das Build Command auf
+Sollten weder `pip3` noch `pip` in der Build-Umgebung verfügbar sein, schlägt die
+Installation fehl — und damit der Deploy. Das ist die sichere Richtung: lieber nicht
+veröffentlichen als ungeprüft veröffentlichen.
 
-```
-npx astro build
-```
-
-ändern. Dann entfällt nur die Schemaprüfung auf dem Server — die Prüfung auf doppelte `id`
-steckt in `src/lib/daten.ts` und läuft weiterhin bei jedem Build. In dem Fall vor jedem Push
-lokal `npm run validate` ausführen.
+Wer trotzdem ohne Python auf dem Server deployen will, setzt in Vercel das Build Command
+auf `npx astro build` und den Install Command auf `npm install`. Dann entfällt dort nur die
+Schemaprüfung — die Prüfung auf doppelte `id` steckt in `src/lib/daten.ts` und läuft weiter
+bei jedem Build, und die GitHub Action prüft ohnehin vollständig.
 
 ---
 
@@ -393,6 +568,12 @@ scripts/validate.py         Schemaprüfung
 scripts/validate.mjs        startet validate.py mit dem passenden Python
 scripts/suchtest.mts        Prüfungen für die Suche
 scripts/filtertest.mts      Prüfungen für die Filter
+
+src/pages/sitemap.xml.ts    erzeugt dist/sitemap.xml (1011 Adressen)
+src/pages/robots.txt.ts     erzeugt dist/robots.txt mit Verweis auf die Sitemap
+src/pages/404.astro         Seite für unbekannte Adressen, mit funktionierender Suche
+vercel.json                 Build, Ausgabeverzeichnis und Cache-Header für Vercel
+.github/workflows/          GitHub Action: prüft jeden Push und jeden Pull Request
 scripts/import/             einmalige Importskripte aus Word/Excel (Beleg, nicht mehr nötig)
 buecherei-daten/            Originalübergabe, unverändert als Beleg
 NOTIZEN.md                  bekannte Mängel im Datenbestand

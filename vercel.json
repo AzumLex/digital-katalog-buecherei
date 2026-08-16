@@ -1,0 +1,40 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "astro",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+
+  "installCommand": "npm install && (pip3 install -r requirements.txt || pip install -r requirements.txt)",
+
+  "trailingSlash": true,
+
+  "headers": [
+    {
+      "//": "Dateien in /_astro/ tragen einen Inhalts-Hash im Namen. Ändert sich der Inhalt, ändert sich der Name — sie dürfen deshalb ein Jahr im Cache bleiben.",
+      "source": "/_astro/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "//": "Such- und Filterdaten tragen keinen Hash im Namen. Kurz zwischenspeichern, damit ein neu eingetragener Titel binnen Minuten auffindbar ist; stale-while-revalidate hält es trotzdem schnell.",
+      "source": "/suchindex.json",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=300, stale-while-revalidate=86400" }]
+    },
+    {
+      "source": "/liste/(.*).json",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=300, stale-while-revalidate=86400" }]
+    },
+    {
+      "source": "/(sitemap.xml|robots.txt|favicon.svg)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }]
+    },
+    {
+      "//": "Alles Übrige ist HTML. Die Ausnahmeliste im Muster ist nötig, weil sich Vercel-Header-Regeln sonst gegenseitig überschreiben — eine Catch-all-Regel würde die immutable-Angabe oben wieder aufheben.",
+      "source": "/((?!_astro/|liste/|suchindex\\.json|sitemap\\.xml|robots\\.txt|favicon\\.svg).*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
+}

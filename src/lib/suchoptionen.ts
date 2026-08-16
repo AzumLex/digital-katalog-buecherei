@@ -63,9 +63,14 @@ export const GEWICHTUNG: Record<string, number> = {
 
 export const SUCH_FELDER = Object.keys(GEWICHTUNG);
 
-/** Felder, die im Index mitgespeichert werden, weil die Trefferliste sie anzeigt. */
+/**
+ * Felder, die im Index mitgespeichert werden, weil die Trefferliste sie anzeigt.
+ *
+ * `id` steht hier bewusst NICHT: MiniSearch führt die Dokumentkennungen ohnehin in
+ * `documentIds` und liefert sie an jedem Treffer als `.id`. Sie zusätzlich
+ * abzuspeichern kostete 44 KB für nichts.
+ */
 export const SPEICHER_FELDER = [
-  'id',
   'sparte',
   'titel',
   'untertitel',

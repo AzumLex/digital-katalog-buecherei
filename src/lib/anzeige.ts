@@ -220,41 +220,63 @@ export function seitentitel(m: Medium): string {
   return `${werk} · Büchereikatalog`;
 }
 
+/** Entfernt Wiederholungen, ohne die Reihenfolge zu ändern; Groß-/Kleinschreibung egal. */
+function ohneDoppelte(teile: Array<string | undefined>): string[] {
+  const gesehen = new Set<string>();
+  const heraus: string[] = [];
+  for (const teil of teile) {
+    if (!istGesetzt(teil)) continue;
+    const schluessel = (teil as string).toLowerCase();
+    if (gesehen.has(schluessel)) continue;
+    gesehen.add(schluessel);
+    heraus.push(teil as string);
+  }
+  return heraus;
+}
+
 /**
  * Eine Meta-Beschreibung aus dem, was über den Titel bekannt ist.
  *
  * Bewusst als Sätze und nicht als aneinandergereihte Felder: Was hier steht, ist bei
  * einer Google-Suche und beim Teilen eines Links das Einzige, was jemand sieht,
  * bevor er klickt. Fehlende Angaben entfallen ersatzlos — wie überall im Katalog.
+ *
+ * Wird es zu lang, fallen ganze Sätze von hinten weg statt mitten im Wort
+ * abgeschnitten zu werden. Ein „… Im Bes…" am Ende sieht nach kaputt aus.
  */
 export function metaBeschreibung(m: Medium): string {
-  const saetze: string[] = [];
-
   const autor = autorAnzeige(m);
-  const kopf = [m.titel, autor && `von ${autor}`].filter(Boolean).join(' ');
-  saetze.push(kopf);
 
-  if (m.reihe) {
-    saetze.push(istGesetzt(m.band) ? `Band ${m.band} der Reihe „${m.reihe}"` : `Aus der Reihe „${m.reihe}"`);
-  }
-
-  if (m.figur) saetze.push(`Tonie-Figur: ${m.figur}`);
-
-  const merkmale = [
+  // Bei 151 der 181 Tonies steht in `art` dasselbe wie in `genres` — „Hörspiel,
+  // Hörspiel" wäre das Ergebnis, wenn man beides ungeprüft aneinanderreiht.
+  const merkmale = ohneDoppelte([
     m.art,
-    m.genres?.join(', '),
+    ...(m.genres ?? []),
     istGesetzt(m.laufzeit_min) ? laufzeitText(m.laufzeit_min as number) : undefined,
     istGesetzt(m.alter_ab) ? `ab ${m.alter_ab} Jahren` : undefined,
     istGesetzt(m.jahr) ? `${m.verlag ? `${m.verlag} ` : ''}${m.jahr}` : m.verlag,
     istGesetzt(m.seiten) ? `${m.seiten} Seiten` : undefined,
-  ]
-    .filter((t): t is string => istGesetzt(t))
-    .join(', ');
-  if (merkmale) saetze.push(merkmale);
+  ]).join(', ');
 
-  saetze.push('Im Bestand der Bücherei');
+  const saetze = [
+    [m.titel, autor && `von ${autor}`].filter(Boolean).join(' '),
+    m.reihe
+      ? istGesetzt(m.band)
+        ? `Band ${m.band} der Reihe „${m.reihe}“`
+        : `Aus der Reihe „${m.reihe}“`
+      : undefined,
+    m.figur ? `Tonie-Figur: ${m.figur}` : undefined,
+    merkmale || undefined,
+    'Im Bestand der Bücherei',
+  ].filter((s): s is string => istGesetzt(s));
 
-  return kuerze(`${saetze.join('. ')}.`);
+  let text = kuerze(`${saetze[0]}.`);
+  for (const satz of saetze.slice(1)) {
+    const erweitert = `${text.slice(0, -1)}. ${satz}.`;
+    if (erweitert.length > BESCHREIBUNG_MAX) continue;
+    text = erweitert;
+  }
+  return text;
 }
 
 /** Angaben zum Exemplar in der Bücherei. */

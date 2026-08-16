@@ -15,7 +15,7 @@ import Sortierwahl from '../../components/Sortierwahl.astro';
 import { facettenDerSparte } from '../../lib/listendaten';
 import { SPARTEN, alleMedien, medienDerSparte, spartenNachName, type Medium, type Sparte } from '../../lib/daten';
 import { ankerIds } from '../../lib/autoren';
-import { autorAnker, spartenSegmente } from '../../lib/pfade';
+import { autorAnker, spartenPfad, spartenSegmente } from '../../lib/pfade';
 import {
   SORTIERUNGEN,
   SORTIER_TEXTE,
@@ -83,11 +83,31 @@ const seitenTitel =
   seite.anzahlSeiten > 1
     ? `${bezeichnung} — Seite ${seite.nummer} von ${seite.anzahlSeiten}`
     : bezeichnung;
+
+/**
+ * Dieselbe Liste liegt in vier Sortierungen vor. Für Suchmaschinen ist das viermal
+ * derselbe Inhalt, deshalb wird nur die Standardsortierung indexiert; die übrigen
+ * verweisen darauf und bleiben „follow", damit die Titelseiten trotzdem gefunden
+ * werden.
+ */
+const istStandard = sortierung === STANDARD_SORTIERUNG;
+const kanonisch = istStandard
+  ? spartenPfad(sparte, sortierung, seite.nummer)
+  : spartenPfad(sparte, STANDARD_SORTIERUNG);
+
+const filterNamen = facetten.filter((f) => f.art !== 'schalter').map((f) => f.titel);
+const beschreibung =
+  seite.anzahlEintraege === 0
+    ? `${bezeichnung}: Diese Sparte der Bücherei ist noch nicht erfasst.`
+    : `${seite.anzahlEintraege.toLocaleString('de-AT')} Titel der Sparte ${bezeichnung} im Bestand der Bücherei` +
+      (filterNamen.length > 0 ? ` — filtern nach ${filterNamen.join(', ')}.` : '.');
 ---
 
 <Grundgeruest
   titel={`${seitenTitel} · Büchereikatalog`}
-  beschreibung={`${bezeichnung} im Bestand der Bücherei — ${seite.anzahlEintraege} Titel.`}
+  beschreibung={beschreibung}
+  kanonisch={kanonisch}
+  nichtIndexieren={!istStandard}
 >
   <nav class="brotkrumen" aria-label="Pfad">
     <a href="/">Katalog</a> <span aria-hidden="true">›</span> <span>{bezeichnung}</span>
@@ -156,7 +176,7 @@ const seitenTitel =
           Titel nur noch eingetragen werden müssen.
         </p>
         <p class="klein">
-          Wie das geht, steht in der <code>README.md</code> unter „Einen Titel hinzufügen".
+          Wie das geht, steht in der <code>README.md</code> unter „Einen Titel hinzufügen“.
         </p>
       </div>
     )
