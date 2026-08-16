@@ -43,6 +43,7 @@ const { sparte, aktuell, neuVerfuegbar } = Astro.props;
                 class:list={['knopf', { aktiv: istAktuell }]}
                 href={spartenPfad(sparte, sortierung)}
                 aria-current={istAktuell ? 'true' : undefined}
+                data-sortierung={sortierung}
               >
                 {SORTIER_TEXTE[sortierung].kurz}
                 <span class="nur-vorlesen"> — {SORTIER_TEXTE[sortierung].lang}</span>

@@ -16,6 +16,8 @@ import {
   angabenInhalt,
   autorAnzeige,
   bandText,
+  metaBeschreibung,
+  seitentitel,
 } from '../../lib/anzeige';
 import { autorAnker, spartenPfad, titelPfad } from '../../lib/pfade';
 import { STANDARD_SORTIERUNG, sortiereReihe } from '../../lib/sortierung';
@@ -50,13 +52,9 @@ const autorenLink =
     ? `${spartenPfad(block.sparte, STANDARD_SORTIERUNG, block.seite)}#${autorAnker(block.schluessel)}`
     : undefined;
 
-const seitenTitel = [medium.titel, autor].filter(Boolean).join(' — ');
 ---
 
-<Grundgeruest
-  titel={`${seitenTitel} · Büchereikatalog`}
-  beschreibung={[medium.titel, autor, medium.reihe].filter(Boolean).join(' · ')}
->
+<Grundgeruest titel={seitentitel(medium)} beschreibung={metaBeschreibung(medium)}>
   <nav class="brotkrumen" aria-label="Pfad">
     <a href="/">Katalog</a> <span aria-hidden="true">›</span>
     <a href={spartenPfad(medium.sparte)}>{bezeichnung}</a>

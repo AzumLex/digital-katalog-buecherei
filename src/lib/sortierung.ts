@@ -1,10 +1,29 @@
 /**
  * Sortierung und Blätterung der Listenansichten.
  *
- * Alles läuft beim Build. Die Listen sind fertig sortiert im HTML — im Browser wird
- * nicht nachsortiert.
+ * Ungefiltert entstehen die Listen beim Build und stehen fertig sortiert im HTML.
+ * Sobald ein Filter aktiv ist, ordnet dasselbe Modul im Browser neu — deshalb ist
+ * hier nichts an die Katalogdaten gebunden (siehe `Sortierbar`).
  */
-import type { Medium } from './daten';
+/**
+ * Was ein Eintrag mitbringen muss, um sortiert werden zu können.
+ *
+ * Bewusst als eigenes, schmales Interface statt als `Medium`: Dieselbe Sortierung
+ * läuft beim Build über die Katalogdaten und im Browser über die abgespeckten
+ * Einträge aus `/liste/<sparte>.json`. Zwei Umsetzungen derselben Regeln würden
+ * garantiert irgendwann auseinanderlaufen — besonders bei den Reihenfolgen, die
+ * niemand täglich prüft.
+ */
+export interface Sortierbar {
+  id: string;
+  titel: string;
+  autor_nachname?: string;
+  autor_vorname?: string;
+  reihe?: string;
+  band?: number;
+  jahr?: number;
+  erfasst_am?: string | null;
+}
 
 /** Ab wann geblättert wird. Mehr Einträge als das kommen nie in eine Seite. */
 export const PRO_SEITE = 60;
@@ -72,12 +91,12 @@ function datumAbsteigend(a: string | null | undefined, b: string | null | undefi
  * unter dem Titel. Damit landet „Paw Patrol" unter P und nicht in einem Block
  * namenloser Einträge am Rand.
  */
-export function ordnungsname(m: Medium): string {
+export function ordnungsname(m: Sortierbar): string {
   return m.autor_nachname ?? m.reihe ?? m.titel;
 }
 
 /** Reihen, von denen mehr als ein Band in der übergebenen Menge steckt. */
-export function mehrbaendigeReihen(medien: Medium[]): Set<string> {
+export function mehrbaendigeReihen(medien: Sortierbar[]): Set<string> {
   const anzahl = new Map<string, number>();
   for (const m of medien) {
     if (m.reihe) anzahl.set(m.reihe, (anzahl.get(m.reihe) ?? 0) + 1);
@@ -92,7 +111,7 @@ export function mehrbaendigeReihen(medien: Medium[]): Set<string> {
  * Bände als Block beieinander und werden anschließend nach Bandnummer geordnet,
  * statt alphabetisch auseinandergerissen zu werden.
  */
-function gruppentext(m: Medium, reihen: Set<string>): string {
+function gruppentext(m: Sortierbar, reihen: ReadonlySet<string>): string {
   return m.reihe && reihen.has(m.reihe) ? m.reihe : m.titel;
 }
 
@@ -110,11 +129,11 @@ function gruppentext(m: Medium, reihen: Set<string>): string {
  * immer mit dem Erscheinungsjahr überein: Bei „Ein Fall für August Emmerich" ist
  * Band 5 (2020) älter als Band 4 (2021).
  */
-export function sortiere(medien: Medium[], sortierung: Sortierung): Medium[] {
+export function sortiere<T extends Sortierbar>(medien: T[], sortierung: Sortierung): T[] {
   const reihen = mehrbaendigeReihen(medien);
 
   /** Reihenfolge innerhalb eines Reihen- oder Autorenblocks. */
-  const imBlock = (a: Medium, b: Medium): number =>
+  const imBlock = (a: T, b: T): number =>
     zahlAufsteigend(a.band, b.band) ||
     zahlAufsteigend(a.jahr, b.jahr) ||
     collator.compare(a.titel, b.titel) ||
@@ -124,13 +143,13 @@ export function sortiere(medien: Medium[], sortierung: Sortierung): Medium[] {
    * Nach Autor. Der Vorname entscheidet mit, weil sich zwölf Nachnamen im Bestand
    * zwei Personen teilen (Alex Beer und Hans de Beer, Anna und Stephanie Schneider …).
    */
-  const nachAutor = (a: Medium, b: Medium): number =>
+  const nachAutor = (a: T, b: T): number =>
     collator.compare(ordnungsname(a), ordnungsname(b)) ||
     collator.compare(a.autor_vorname ?? '', b.autor_vorname ?? '') ||
     collator.compare(gruppentext(a, reihen), gruppentext(b, reihen)) ||
     imBlock(a, b);
 
-  const nachTitel = (a: Medium, b: Medium): number =>
+  const nachTitel = (a: T, b: T): number =>
     collator.compare(gruppentext(a, reihen), gruppentext(b, reihen)) || imBlock(a, b);
 
   const kopie = [...medien];
@@ -150,7 +169,7 @@ export function sortiere(medien: Medium[], sortierung: Sortierung): Medium[] {
 /**
  * Bände einer Reihe in Lesereihenfolge — für die Querverweise auf der Detailseite.
  */
-export function sortiereReihe(medien: Medium[]): Medium[] {
+export function sortiereReihe<T extends Sortierbar>(medien: T[]): T[] {
   return [...medien].sort(
     (a, b) =>
       zahlAufsteigend(a.band, b.band) ||

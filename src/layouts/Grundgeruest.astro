@@ -11,11 +11,20 @@ interface Props {
   beschreibung?: string;
   /** Auf der Startseite wird der Kopf nicht verlinkt — man ist schon dort. */
   istStartseite?: boolean;
+  /**
+   * Die maßgebliche Adresse dieser Seite, falls es sie unter mehreren gibt.
+   * Die Sparten-Listen liegen in vier Sortierungen vor — inhaltlich dieselbe Liste.
+   */
+  kanonisch?: string;
+  /** Seiten, die Suchmaschinen nicht in den Index nehmen sollen. */
+  nichtIndexieren?: boolean;
 }
 
-const { titel, beschreibung, istStartseite = false } = Astro.props;
+const { titel, beschreibung, istStartseite = false, kanonisch, nichtIndexieren } = Astro.props;
 
 const jahr = datenstand ? datenstand.slice(0, 4) : '';
+
+const kanonischeAdresse = new URL(kanonisch ?? Astro.url.pathname, Astro.site).href;
 ---
 
 <!doctype html>
@@ -25,6 +34,16 @@ const jahr = datenstand ? datenstand.slice(0, 4) : '';
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{titel}</title>
     {beschreibung && <meta name="description" content={beschreibung} />}
+    <link rel="canonical" href={kanonischeAdresse} />
+    {nichtIndexieren && <meta name="robots" content="noindex,follow" />}
+
+    {/* Damit geteilte Links in Messengern und Chats etwas Lesbares zeigen. */}
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={titel} />
+    {beschreibung && <meta property="og:description" content={beschreibung} />}
+    <meta property="og:url" content={kanonischeAdresse} />
+    <meta property="og:locale" content="de_AT" />
+
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>

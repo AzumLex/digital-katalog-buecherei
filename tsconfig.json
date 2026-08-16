@@ -1,5 +1,12 @@
 {
   "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    // Die Module unter src/lib und src/scripts geben ihre .ts-Endung im Import an.
+    // Das braucht Node, um sie in den Prüfskripten (npm run suchtest, npm run
+    // filtertest) direkt zu laden — nur so testen die Prüfungen den echten Code
+    // und nicht eine Nachbildung. Vite stört die Endung nicht.
+    "allowImportingTsExtensions": true
+  },
   "include": [".astro/types.d.ts", "**/*"],
   "exclude": ["dist", "node_modules", "buecherei-daten"]
 }

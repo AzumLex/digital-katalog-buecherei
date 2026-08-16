@@ -8,9 +8,10 @@ Der Katalog ist zugleich Vorbereitung auf den späteren Umstieg auf ein richtige
 Bibliotheksprogramm: Die Datenfelder sind schon so geschnitten, dass sie sich ohne
 Informationsverlust dorthin übernehmen lassen.
 
-**Stand: Phase 2.** Startseite, Sparten-Listen und eine Detailseite je Titel stehen — 1057
-fertig gebaute Seiten, ganz ohne JavaScript. Die Volltextsuche kommt als Nächstes; das
-Suchfeld auf der Startseite ist bis dahin sichtbar deaktiviert.
+**Stand: Phase 4.** Startseite, Sparten-Listen mit Filtern, eine Detailseite je Titel und
+die Volltextsuche stehen — 1057 fertig gebaute Seiten plus Such- und Filterdaten.
+Stöbern, Sortieren und Blättern funktionieren ohne JavaScript; Suche und Filter brauchen
+es.
 
 ---
 
@@ -32,6 +33,8 @@ npm run dev                    # startet http://localhost:4321
 | `npm run build` | erzeugt die fertige Website in `dist/` (prüft vorher die Daten) |
 | `npm run preview` | zeigt das Ergebnis aus `dist/` lokal an |
 | `npm run check` | prüft Astro- und TypeScript-Dateien auf Fehler |
+| `npm run suchtest` | prüft die Suche gegen den gebauten Index (nach `npm run build`) |
+| `npm run filtertest` | prüft Facetten und Filter gegen die gebauten Sparten-Dateien |
 
 ---
 
@@ -98,6 +101,118 @@ Gehört ein Titel zu einer Reihe mit mehreren Bänden, stehen unten alle Bände 
 Lesereihenfolge; der gerade geöffnete ist markiert und nicht verlinkt. Darunter führt
 „weitere Titel von …" an die Stelle der Sparten-Liste, an der der Block dieses Autors
 beginnt.
+
+### Die Filter
+
+Jede Sparten-Liste hat ein Filterpanel. **Welche Filter eine Sparte zeigt, steht nirgends
+im Code** — es ergibt sich aus ihren Daten. Es gibt eine einzige Regel, für alle Sparten
+dieselbe:
+
+> Ein Feld wird zum Filter, wenn mindestens **zwei verschiedene Werte** vorkommen und
+> mindestens **10 %** der Einträge das Feld überhaupt haben.
+
+Daraus folgt von allein:
+
+| Sparte | Filter |
+|---|---|
+| Romane | Genre, Erscheinungsjahrzehnt, Autor, Reihe, Zugang |
+| Tonies | Genre, Autor, Reihe, Art, Altersempfehlung, Laufzeit, Zugang |
+| noch leere Sparten | keine |
+
+Tonies haben keinen Jahrzehnt-Filter, weil bei ihnen kein Erscheinungsjahr erfasst ist.
+Romane bekommen umgekehrt keinen Altersfilter, obwohl zwei Titel ein `alter_ab` tragen —
+2 von 806 sind 0,2 % und damit unter der Schwelle. Ein Filter, der 804 Titel wegwirft,
+hilft niemandem. Spieleranzahl und Spieldauer erscheinen, sobald die Sparte Spiele Daten
+bekommt.
+
+Ab 20 Werten bekommt eine Filterliste ein eigenes Suchfeld (bei den Romanen sind das 369
+Autoren und 122 Reihen). Lange Listen zeigen zunächst die zwölf häufigsten Werte.
+
+**Verhalten**
+
+- **Jeder Wert zeigt seine Trefferzahl.** Bei der Zählung wird die eigene Facette
+  ausgeklammert: Ist „Krimi" gewählt, behält „Thriller" seine volle Zahl, sonst käme man
+  nie zu einer Mehrfachauswahl. Die *anderen* Facetten rechnen dagegen mit.
+- **Werte mit null Treffern bleiben stehen** und werden nur blass und unklickbar. Würde
+  man sie entfernen, sprängen die übrigen bei jedem Klick an eine andere Stelle.
+- **Mehrere Werte einer Facette wirken als ODER** („Krimi oder Thriller"), verschiedene
+  Facetten als UND.
+- **Der Filterzustand steht in der Adresse:** `/sparte/romane/?genre=Krimi&jahrzehnt=2020`,
+  Spannen als `?alter=..5` oder `?laufzeit=20..60`. Solche Links lassen sich teilen, und
+  der Zurück-Knopf nimmt Filter einzeln wieder zurück.
+- **„Alle Filter zurücksetzen"** steht über der Liste, sobald ein Filter aktiv ist,
+  daneben jeder aktive Filter als einzeln abwählbare Schaltfläche.
+- **Auf dem Handy** ist das Panel zugeklappt und zeigt nur die Zahl der aktiven Filter; ab
+  48 rem steht es offen.
+- **Sortierung bleibt erhalten:** Ein Wechsel der Sortierung nimmt die Filter mit.
+- **Filter und Suche sind kombinierbar** — im Panel steht ein Suchfeld für diese Sparte.
+
+**„Neu im Bestand"** meint Titel, deren `erfasst_am` höchstens 90 Tage zurückliegt —
+ausdrücklich **nicht** das Erscheinungsjahr. Ein antiquarisch beschafftes Buch von 1975
+ist neu im Bestand, ein 2026 erschienener Titel, der seit einem Jahr im Regal steht, ist
+es nicht. Solange nirgends ein `erfasst_am` gepflegt ist, steht der Schalter auf 0 und ist
+ausgegraut wie jeder andere Wert ohne Treffer.
+
+**Wie es technisch läuft:** Die ungefilterte Liste steht fertig im HTML. Sobald ein Filter
+greift, holt der Browser einmal `/liste/<sparte>.json` (Romane rund 70 KB komprimiert) und
+filtert, sortiert und blättert von da an lokal — **pro Filterklick wird nichts
+nachgeladen**. Wer nur blättert, lädt die Datei nie. Sortiert wird dabei mit demselben
+Modul wie im Build, und die Zeilen entstehen aus denselben Feldern; die gefilterte Liste
+kann also nicht anders aussehen oder anders geordnet sein als die statische.
+
+### Die Suche
+
+Gesucht wird mit [MiniSearch](https://github.com/lucaong/minisearch), vollständig im
+Browser. Der Index entsteht beim Build und wird als eine Datei ausgeliefert
+(`/suchindex.json`, rund 590 KB, komprimiert etwa 140 KB); er wird erst geladen, wenn
+jemand das Suchfeld anfasst. **Die Seite schickt keine einzige Anfrage nach außen** — kein
+Suchverlauf, keine Zählpixel, keine fremden Server.
+
+Durchsucht werden, absteigend gewichtet: Titel, Autor, Reihe, Untertitel, Verlag, Genre,
+Figur. Getippt wird ab dem zweiten Zeichen, gesucht 150 ms nach dem letzten Tastendruck.
+Treffer erscheinen nach Sparte gruppiert mit Trefferzahl, der Suchbegriff ist im Treffer
+hervorgehoben, und die Anfrage steht in der Adresse (`/?q=krimi`) — Trefferlisten lassen
+sich also verlinken, und der Zurück-Knopf führt aus einem Titel wieder auf die Liste.
+
+**Tastatur:** `/` springt ins Suchfeld, Pfeiltasten gehen durch die Treffer, Enter öffnet,
+Escape leert.
+
+#### Normalisierung
+
+Das ist der Teil, an dem eine Suche steht oder fällt.
+
+- **Umlaute in beide Richtungen.** „Muller", „Müller" und „Mueller" finden einander,
+  ebenso „Grösse", „Größe" und „Groesse". Dafür wird beim Indexieren jedes Wort in zwei
+  Formen abgelegt — auf den Grundbuchstaben gefaltet (`müller` → `muller`) und
+  ausgeschrieben (`mueller`). Die **Suchanfrage** wird dagegen nur auf die Grundform
+  gebracht. Diese Asymmetrie ist Absicht: MiniSearch verknüpft mehrere Terme aus
+  `processTerm` mit demselben Operator wie die übrigen Suchwörter, bei `AND` müsste ein
+  Buch also beide Schreibweisen enthalten. Für „Müller" ginge das gut, für „Ægisdóttir"
+  nicht.
+- **Groß-/Kleinschreibung und Satzzeichen** spielen keine Rolle; „O'Mahony" findet
+  „OMahony" und umgekehrt.
+- **Komposita.** Zusätzlich zur normalen Zerlegung werden Wortbestandteile ab vier Zeichen
+  indexiert, damit „Krimi" auch „Alpenkrimi" und „Kriminalroman" findet. Das ist kein
+  allgemeiner Kompositazerleger, sondern ein Abgleich gegen den eigenen Wortschatz:
+  „Kriminalroman" wird nur in „krimi" und „roman" zerlegt, weil beides im Katalog
+  tatsächlich als eigenes Wort vorkommt. Ein Fugen-s wird dabei übersprungen.
+- **Bindestrichwörter in beide Richtungen.** „Island-Krimi" ist über „Island", über
+  „Krimi" und über „Islandkrimi" zu finden.
+- **Gesucht wird in drei Stufen:** erst exakt, dann als Wortanfang, dann unscharf
+  (Fuzzy-Distanz 0.2). Die Stufen laufen getrennt und werden aneinandergehängt, damit ein
+  exakter Treffer **immer** vor einem unscharfen steht — die eingebaute Gewichtung allein
+  garantiert das nicht.
+- **Mehrere Suchwörter grenzen ein** (UND-Verknüpfung): „alex beer" findet Alex Beer, nicht
+  jedes Buch mit „Alex" oder „Beer".
+
+Bei null Treffern erscheint „Meinten Sie …?" mit dem nächstliegenden Begriff aus dem
+Bestand, in der Schreibweise, wie sie dort steht — dafür liegt dem Index ein kleines
+Begriffsverzeichnis bei. Findet sich auch unscharf nichts Verwandtes, entfällt der
+Vorschlag; geraten hilft niemandem. Darunter steht in jedem Fall der Hinweis auf die
+Fernleihe.
+
+`npm run suchtest` prüft all das gegen den gebauten Index — mit demselben Modul, das auch
+im Browser läuft.
 
 ### Gestaltung
 
@@ -257,25 +372,41 @@ src/lib/sortierung.ts       deutsche Sortierung, Reihenfolge von Serien, Blätte
 src/lib/anzeige.ts          Formatierung; entscheidet, was angezeigt wird und was entfällt
 src/lib/pfade.ts            das Adressschema — alle URLs an einer Stelle
 src/lib/autoren.ts          wo der Block eines Autors in der Liste beginnt
+src/lib/suchoptionen.ts     Normalisierung und Suchlogik — läuft im Build UND im Browser
+src/lib/suchdokumente.ts    baut den Index; nur im Build, nie im Browser
+src/lib/facetten.ts         Filter: Ableitung, Zählung, Adresszeile — Build UND Browser
+src/lib/listendaten.ts      baut /liste/<sparte>.json; nur im Build
+src/lib/zeile.ts            was in einer Listenzeile steht — Build UND Browser
 
 src/pages/index.astro       Startseite
 src/pages/sparte/           Listenansicht, alle Sortierungen und Seiten
 src/pages/titel/            Detailseite je Titel
-src/components/             Kachel, Listenzeile, Sortierwahl, Blätterung, Suchleiste
+src/pages/suchindex.json.ts erzeugt dist/suchindex.json
+src/pages/liste/            erzeugt dist/liste/<sparte>.json
+src/scripts/suche.ts        Volltextsuche im Browser (nur Startseite)
+src/scripts/filter.ts       Filter im Browser (nur Sparten-Listen)
+src/components/             Kachel, Listenzeile, Sortierwahl, Blätterung, Suchleiste, Filterpanel
 src/layouts/                gemeinsames Seitengerüst
 src/styles/global.css       Farben, Schriften, Abstände als CSS Custom Properties
 
 scripts/validate.py         Schemaprüfung
 scripts/validate.mjs        startet validate.py mit dem passenden Python
+scripts/suchtest.mts        Prüfungen für die Suche
+scripts/filtertest.mts      Prüfungen für die Filter
 scripts/import/             einmalige Importskripte aus Word/Excel (Beleg, nicht mehr nötig)
 buecherei-daten/            Originalübergabe, unverändert als Beleg
 NOTIZEN.md                  bekannte Mängel im Datenbestand
 ```
 
 Technisch: [Astro](https://astro.build/) mit TypeScript, `output: 'static'`. Kein React,
-kein Vue, kein Tailwind — Astro-Komponenten und reines CSS. Der Katalog kommt bisher ganz
-ohne JavaScript im Browser aus; erst die Suche wird ein einzelnes Vanilla-TypeScript-Skript
-brauchen.
+kein Vue, kein Tailwind — Astro-Komponenten und reines CSS. Im Browser laufen zwei
+Vanilla-TypeScript-Skripte: die Suche auf der Startseite (rund 26 KB samt MiniSearch) und
+die Filter auf den Sparten-Listen (rund 18 KB). Stöbern, Sortieren und Blättern
+funktionieren ohne JavaScript.
+
+Die Module unter `src/lib/` und `src/scripts/` geben in ihren Importen die `.ts`-Endung
+an. Das ist Absicht: So kann Node sie in den Prüfskripten direkt laden, und die Prüfungen
+testen den echten Code statt einer Nachbildung.
 
 ## Bekannte Mängel im Bestand
 

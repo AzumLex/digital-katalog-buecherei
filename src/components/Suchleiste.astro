@@ -1,33 +1,47 @@
 ---
 /**
- * Suchleiste der Startseite.
+ * Suchleiste der Startseite samt Trefferbereich.
  *
- * Das Feld steht schon an seinem Platz, sucht aber noch nicht — die Suche ist eine
- * eigene Ausbaustufe. Bewusst als `disabled` ausgezeichnet statt als Feld, das
- * Eingaben annimmt und dann nichts tut: Ein Formular, das so aussieht als ob, ist
- * ärgerlicher als eines, das ehrlich sagt, dass es noch nicht so weit ist.
+ * Das Feld startet im HTML als `disabled` und wird vom Skript freigeschaltet. So
+ * bekommt niemand ein Eingabefeld, das Zeichen annimmt und dann nichts tut — ohne
+ * JavaScript ist erkennbar, dass hier nichts zu holen ist, und die Sparten stehen
+ * ja gleich darunter.
  */
 ---
 
-<section class="suche" aria-labelledby="suche-titel">
-  <h2 id="suche-titel" class="nur-vorlesen">Suche</h2>
+<section class="suche" role="search" aria-labelledby="suche-titel">
+  <h2 id="suche-titel" class="nur-vorlesen">Im Bestand suchen</h2>
+
   <label class="label" for="suchfeld">Im Bestand suchen</label>
   <input
     id="suchfeld"
     class="feld"
     type="search"
-    placeholder="Titel, Autor, Reihe …"
+    placeholder="Titel, Autor, Reihe, Figur …"
+    autocomplete="off"
+    autocorrect="off"
+    autocapitalize="off"
+    spellcheck="false"
+    enterkeyhint="search"
     disabled
-    aria-describedby="suche-hinweis"
+    aria-describedby="suche-status"
   />
-  <p id="suche-hinweis" class="hinweis">
-    Die Suche wird gerade gebaut. Bis dahin geht es über die Sparten.
+
+  <p id="suche-status" class="hinweis" role="status" aria-live="polite">
+    Die Suche braucht JavaScript. Ohne geht es über die Sparten weiter unten.
   </p>
 </section>
 
+<div id="suchergebnis" class="ergebnis" hidden></div>
+
+<script>
+  import { starteSuche } from '../scripts/suche';
+  starteSuche();
+</script>
+
 <style>
   .suche {
-    margin-bottom: var(--abstand-5);
+    margin-bottom: var(--abstand-4);
   }
 
   .label {
@@ -42,21 +56,221 @@
   .feld {
     width: 100%;
     padding: 0.75rem var(--abstand-3);
-    background: var(--farbe-flaeche-leise);
-    border: 1px solid var(--farbe-rand);
+    background: var(--farbe-flaeche);
+    border: 1px solid var(--farbe-rand-kraeftig);
     border-radius: var(--radius);
-    color: var(--farbe-text-leise);
+    color: var(--farbe-text);
     font-family: var(--schrift-ui);
+    /* 1rem verhindert, dass iOS beim Antippen in die Seite hineinzoomt. */
     font-size: var(--text-normal);
-    /* 16px verhindert, dass iOS beim Antippen hineinzoomt. */
+    transition: border-color var(--uebergang);
+  }
+
+  .feld::placeholder {
+    color: var(--farbe-text-leise);
+  }
+
+  .feld:hover:not(:disabled) {
+    border-color: var(--farbe-akzent);
   }
 
   .feld:disabled {
+    background: var(--farbe-flaeche-leise);
+    color: var(--farbe-text-leise);
     cursor: not-allowed;
   }
 
   .hinweis {
     margin: var(--abstand-2) 0 0;
+    min-height: 1.5em;
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+</style>
+
+<style is:global>
+  /*
+   * Der Trefferbereich wird vom Skript zusammengesetzt, kann also keine von Astro
+   * umbenannten Klassennamen tragen — deshalb global, mit eindeutigen Präfixen.
+   */
+  .ergebnis {
+    margin-bottom: var(--abstand-5);
+  }
+
+  .ergebnis-kopf {
+    margin: 0 0 var(--abstand-3);
+    padding-bottom: var(--abstand-2);
+    border-bottom: 1px solid var(--farbe-rand);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--farbe-text-leise);
+  }
+
+  .ergebnis-anfrage {
+    color: var(--farbe-text);
+  }
+
+  .ergebnis .gruppe {
+    margin-bottom: var(--abstand-4);
+  }
+
+  .ergebnis .gruppe-kopf {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--abstand-3);
+    margin: 0 0 var(--abstand-1);
+    padding-bottom: var(--abstand-1);
+    border-bottom: 1px solid var(--farbe-rand);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    color: var(--farbe-text);
+  }
+
+  .ergebnis .gruppe-anzahl {
+    font-family: var(--schrift-zahl);
+    font-variant-numeric: tabular-nums;
+    font-weight: 400;
+    color: var(--farbe-text-leise);
+  }
+
+  .ergebnis .trefferliste {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ergebnis .treffer {
+    border-bottom: 1px solid var(--farbe-rand);
+  }
+
+  .ergebnis .treffer-link {
+    display: block;
+    padding: var(--abstand-3) var(--abstand-2);
+    margin-inline: calc(var(--abstand-2) * -1);
+    border-radius: var(--radius);
+    color: inherit;
+    text-decoration: none;
+    transition: background-color var(--uebergang);
+  }
+
+  .ergebnis .treffer-link:hover,
+  .ergebnis .treffer-link:focus-visible {
+    background: var(--farbe-akzent-leise);
+  }
+
+  .ergebnis .treffer-autor,
+  .ergebnis .treffer-reihe,
+  .ergebnis .treffer-zusatz {
+    display: block;
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .ergebnis .treffer-titel {
+    display: block;
+    margin-top: var(--abstand-1);
+    font-size: var(--text-gross);
+    font-weight: 600;
+    line-height: var(--zeilenhoehe-eng);
+  }
+
+  .ergebnis .treffer-link:hover .treffer-titel {
+    color: var(--farbe-akzent);
+  }
+
+  .ergebnis .treffer-untertitel {
+    display: block;
+    margin-top: var(--abstand-1);
+    font-style: italic;
+    line-height: var(--zeilenhoehe-eng);
+    color: var(--farbe-text-leise);
+  }
+
+  .ergebnis .treffer-reihe,
+  .ergebnis .treffer-zusatz {
+    margin-top: var(--abstand-1);
+  }
+
+  .ergebnis .treffer-figur {
+    display: block;
+    margin-top: var(--abstand-2);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .ergebnis .treffer-figur-label {
+    display: inline-block;
+    margin-right: var(--abstand-2);
+    padding: 0 0.4em;
+    border-radius: var(--radius);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+    font-size: var(--text-winzig);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .ergebnis mark {
+    padding: 0 0.1em;
+    border-radius: 2px;
+    background: var(--farbe-hervorhebung);
+    color: inherit;
+    font-weight: 600;
+  }
+
+  .ergebnis .mehr,
+  .ergebnis .vorschlag {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-akzent);
+    background: none;
+    border: 0;
+    cursor: pointer;
+  }
+
+  .ergebnis .mehr {
+    margin-top: var(--abstand-2);
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--farbe-rand);
+    border-radius: var(--radius);
+    transition: border-color var(--uebergang);
+  }
+
+  .ergebnis .mehr:hover {
+    border-color: var(--farbe-akzent);
+  }
+
+  .ergebnis .keine-treffer {
+    padding: var(--abstand-4);
+    background: var(--farbe-flaeche-leise);
+    border: 1px dashed var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+  }
+
+  .ergebnis .meinten-sie {
+    margin: 0;
+    font-size: var(--text-gross);
+  }
+
+  .ergebnis .vorschlag {
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  .ergebnis .fernleihe {
+    margin: var(--abstand-3) 0 0;
     font-family: var(--schrift-ui);
     font-size: var(--text-klein);
     color: var(--farbe-text-leise);

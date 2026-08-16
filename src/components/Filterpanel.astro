@@ -1,0 +1,295 @@
+---
+/**
+ * Das Filterpanel einer Sparten-Liste.
+ *
+ * Der Server liefert nur die Hülle: Wie viele Filter es gibt, steht schon fest
+ * (die Facetten sind beim Build abgeleitet), aber die Werte samt Trefferzahlen
+ * ändern sich mit jeder Auswahl — die baut deshalb das Skript.
+ *
+ * Auf dem Handy ist das Panel ein zugeklapptes `<details>`; auf breiten Displays
+ * klappt das Skript es beim Laden auf. Ohne JavaScript bleibt es zu und sagt, warum.
+ */
+import type { Sparte } from '../lib/daten';
+import type { Facette } from '../lib/facetten';
+
+interface Props {
+  sparte: Sparte;
+  facetten: Facette[];
+}
+
+const { sparte, facetten } = Astro.props;
+
+/** Ohne echte Filter (nur der Zugangsschalter) lohnt das Panel nicht. */
+const zeigen = facetten.some((f) => f.art !== 'schalter');
+---
+
+{
+  zeigen && (
+    <details class="filter" id="filterpanel" data-sparte={sparte}>
+      <summary class="filter-kopf">
+        <span class="filter-titel">Filter</span>
+        <span class="filter-zahl" id="filter-zahl" hidden />
+      </summary>
+
+      <div class="filter-koerper" id="filter-koerper">
+        <p class="filter-hinweis" id="filter-hinweis">
+          Die Filter brauchen JavaScript. Ohne geht es über Sortierung und Blättern weiter.
+        </p>
+      </div>
+    </details>
+  )
+}
+
+<style is:global>
+  /*
+   * Global, weil der Inhalt des Panels vom Skript erzeugt wird und Astros
+   * Komponenten-Kennung dort fehlen würde.
+   */
+  .filter {
+    margin-bottom: var(--abstand-3);
+    border: 1px solid var(--farbe-rand);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+    font-family: var(--schrift-ui);
+  }
+
+  .filter-kopf {
+    display: flex;
+    align-items: center;
+    gap: var(--abstand-2);
+    padding: 0.75rem var(--abstand-3);
+    cursor: pointer;
+    font-size: var(--text-klein);
+    font-weight: 600;
+    color: var(--farbe-text);
+    list-style: none;
+  }
+
+  .filter-kopf::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Eigenes Dreieck statt eines Icons aus einer Bibliothek. */
+  .filter-kopf::before {
+    content: '▸';
+    display: inline-block;
+    color: var(--farbe-text-leise);
+    transition: transform var(--uebergang);
+  }
+
+  .filter[open] .filter-kopf::before {
+    transform: rotate(90deg);
+  }
+
+  .filter-zahl {
+    padding: 0 0.45em;
+    border-radius: 999px;
+    background: var(--farbe-akzent);
+    color: var(--farbe-grund);
+    font-size: var(--text-winzig);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .filter-koerper {
+    padding: 0 var(--abstand-3) var(--abstand-3);
+    border-top: 1px solid var(--farbe-rand);
+  }
+
+  .filter-hinweis {
+    margin: var(--abstand-3) 0 0;
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  /* ---- Eine Facette ---- */
+
+  .facette {
+    padding: var(--abstand-3) 0;
+    border-bottom: 1px solid var(--farbe-rand);
+  }
+
+  .facette:last-child {
+    border-bottom: 0;
+  }
+
+  .facette-titel {
+    margin: 0 0 var(--abstand-2);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--farbe-text-leise);
+  }
+
+  .facette-suche {
+    width: 100%;
+    margin-bottom: var(--abstand-2);
+    padding: 0.4rem 0.6rem;
+    background: var(--farbe-flaeche-leise);
+    border: 1px solid var(--farbe-rand);
+    border-radius: var(--radius);
+    color: var(--farbe-text);
+    font: inherit;
+    font-size: var(--text-klein);
+  }
+
+  .facette-werte {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 17rem;
+    overflow-y: auto;
+  }
+
+  .facette-wert {
+    display: flex;
+    align-items: baseline;
+    gap: var(--abstand-2);
+    /* Fingerbreite Trefferfläche — das Panel wird am Regal bedient. */
+    padding: 0.35rem 0.25rem;
+    border-radius: var(--radius);
+    font-size: var(--text-klein);
+    cursor: pointer;
+  }
+
+  .facette-wert:hover {
+    background: var(--farbe-akzent-leise);
+  }
+
+  .facette-wert input {
+    margin: 0;
+    accent-color: var(--farbe-akzent);
+    flex: none;
+  }
+
+  .facette-wert .name {
+    flex: 1;
+    overflow-wrap: anywhere;
+  }
+
+  .facette-wert .zahl {
+    font-family: var(--schrift-zahl);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-winzig);
+    color: var(--farbe-text-leise);
+  }
+
+  /*
+   * Werte ohne Treffer bleiben stehen und werden nur blass. Würde man sie entfernen,
+   * sprängen die übrigen bei jedem Klick an eine andere Stelle und man klickte daneben.
+   */
+  .facette-wert.leer {
+    color: var(--farbe-text-leise);
+    opacity: 0.55;
+  }
+
+  .facette-wert.leer input:not(:checked) {
+    cursor: not-allowed;
+  }
+
+  .facette-mehr {
+    margin-top: var(--abstand-2);
+    padding: 0.35rem 0;
+    background: none;
+    border: 0;
+    color: var(--farbe-akzent);
+    font: inherit;
+    font-size: var(--text-klein);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+  }
+
+  /* ---- Bereichsfilter ---- */
+
+  .bereich-werte {
+    display: flex;
+    flex-direction: column;
+    gap: var(--abstand-2);
+  }
+
+  .bereich-zeile {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    align-items: center;
+    gap: var(--abstand-2);
+    font-size: var(--text-klein);
+  }
+
+  .bereich-zeile input[type='range'] {
+    width: 100%;
+    accent-color: var(--farbe-akzent);
+  }
+
+  .bereich-anzeige {
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  /* ---- Kopfzeile mit aktiven Filtern ---- */
+
+  .filter-aktiv {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--abstand-2);
+    margin-bottom: var(--abstand-3);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .filter-marke {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: 999px;
+    background: var(--farbe-flaeche);
+    color: var(--farbe-text);
+    font: inherit;
+    font-size: var(--text-klein);
+    cursor: pointer;
+    transition: border-color var(--uebergang);
+  }
+
+  .filter-marke:hover {
+    border-color: var(--farbe-akzent);
+  }
+
+  .filter-marke .weg {
+    color: var(--farbe-text-leise);
+  }
+
+  .filter-zuruecksetzen {
+    padding: 0.3rem 0;
+    background: none;
+    border: 0;
+    color: var(--farbe-akzent);
+    font: inherit;
+    font-size: var(--text-klein);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+  }
+
+  .filter-leer {
+    padding: var(--abstand-4);
+    background: var(--farbe-flaeche-leise);
+    border: 1px dashed var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  /* Auf breiten Displays steht das Panel offen und wirkt wie eine Spalte. */
+  @media (min-width: 48rem) {
+    .filter-kopf {
+      font-size: var(--text-normal);
+    }
+  }
+</style>

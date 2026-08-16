@@ -22,6 +22,7 @@
   --farbe-akzent: #7a4a2b;
   --farbe-akzent-hell: #96603c;
   --farbe-akzent-leise: #f2ebe3;
+  --farbe-hervorhebung: #f7e2a8;
 
   /* ---- Typografie ---- */
   --schrift: ui-serif, Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
@@ -67,6 +68,7 @@
     --farbe-akzent: #d9a273;
     --farbe-akzent-hell: #e8b98f;
     --farbe-akzent-leise: #2b2620;
+    --farbe-hervorhebung: #4d3d1c;
   }
 }
 
@@ -136,6 +138,166 @@ a:hover {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/*
+ * Katalogliste — die Zeilen einer Sparten- oder Neuzugangsliste.
+ *
+ * Bewusst global statt in Medieneintrag.astro gekapselt: Sobald ein Filter aktiv
+ * ist, baut `src/scripts/filter.ts` dieselben Zeilen im Browser auf. Astros
+ * Komponenten-Styles hängen an einer generierten Kennung, die dabei fehlen würde —
+ * die Zeilen sähen nackt aus.
+ */
+.katalogliste {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.katalogliste .eintrag {
+  padding: var(--abstand-3) 0;
+  border-bottom: 1px solid var(--farbe-rand);
+  /* Anker sollen nicht unter der oberen Fensterkante kleben. */
+  scroll-margin-top: var(--abstand-4);
+}
+
+.katalogliste .eintrag > * {
+  margin: 0;
+}
+
+.katalogliste .autor {
+  font-family: var(--schrift-ui);
+  font-size: var(--text-klein);
+  color: var(--farbe-text-leise);
+}
+
+.katalogliste .titel {
+  margin-top: var(--abstand-1);
+  font-size: var(--text-gross);
+  font-weight: 600;
+}
+
+.katalogliste .titel a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.katalogliste .titel a:hover {
+  color: var(--farbe-akzent);
+  text-decoration: underline;
+}
+
+.katalogliste .untertitel {
+  margin-top: var(--abstand-1);
+  font-size: var(--text-normal);
+  font-style: italic;
+  line-height: var(--zeilenhoehe-eng);
+  color: var(--farbe-text-leise);
+}
+
+.katalogliste .reihe,
+.katalogliste .zusatz {
+  margin-top: var(--abstand-1);
+  font-family: var(--schrift-ui);
+  font-size: var(--text-klein);
+  color: var(--farbe-text-leise);
+}
+
+.katalogliste .figur {
+  margin-top: var(--abstand-2);
+  font-family: var(--schrift-ui);
+  font-size: var(--text-klein);
+  color: var(--farbe-text);
+}
+
+.katalogliste .figur-label {
+  display: inline-block;
+  margin-right: var(--abstand-2);
+  padding: 0 0.4em;
+  border-radius: var(--radius);
+  background: var(--farbe-akzent-leise);
+  color: var(--farbe-akzent);
+  font-size: var(--text-winzig);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/*
+ * Blätterung — ebenfalls global, weil das Filterskript sie im Browser nachbaut,
+ * sobald die gefilterte Liste über eine Seite hinausgeht.
+ */
+.blaetterung {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--abstand-2);
+  margin-top: var(--abstand-4);
+  padding-top: var(--abstand-3);
+  border-top: 1px solid var(--farbe-rand);
+  font-family: var(--schrift-ui);
+  font-size: var(--text-klein);
+}
+
+.blaetterung .nummern {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--abstand-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* Auf schmalen Displays rutschen die Ziffern in eine eigene Zeile. */
+  order: 3;
+  flex-basis: 100%;
+}
+
+.blaetterung .pfeil,
+.blaetterung .nummer {
+  display: inline-block;
+  padding: 0.5rem 0.75rem;
+  min-width: 2.5rem;
+  text-align: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--farbe-akzent);
+  text-decoration: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color var(--uebergang),
+    border-color var(--uebergang);
+}
+
+.blaetterung .pfeil:hover,
+.blaetterung .nummer:hover {
+  background: var(--farbe-akzent-leise);
+}
+
+.blaetterung .nummer.aktiv {
+  border-color: var(--farbe-rand-kraeftig);
+  background: var(--farbe-flaeche-leise);
+  color: var(--farbe-text);
+  font-weight: 600;
+}
+
+.blaetterung .gesperrt {
+  color: var(--farbe-rand-kraeftig);
+  pointer-events: none;
+}
+
+.blaetterung .luecke {
+  padding: 0.5rem 0.25rem;
+  color: var(--farbe-text-leise);
+}
+
+@media (min-width: 32rem) {
+  .blaetterung .nummern {
+    order: 0;
+    flex-basis: auto;
+  }
 }
 
 /* Sprungmarke zum Inhalt, sichtbar nur bei Tastaturbedienung. */

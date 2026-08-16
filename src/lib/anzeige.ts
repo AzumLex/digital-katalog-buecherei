@@ -5,7 +5,7 @@
  * keine leeren Zeilen, kein Gedankenstrich als Platzhalter. Deshalb liefern die
  * `angaben…`-Funktionen nur Zeilen zurück, die auch einen Wert haben.
  */
-import type { Medium, MedienStatus } from './daten';
+import type { Medium, MedienStatus } from './daten.ts';
 
 /* ------------------------------------------------------------------ *
  * Grundlagen
@@ -197,6 +197,64 @@ export function angabenAusgabe(m: Medium): Angabe[] {
     ['Originalsprache', m.originalsprache],
     ['Sprache', m.sprache ? spracheText(m.sprache) : undefined],
   ]);
+}
+
+/* ------------------------------------------------------------------ *
+ * Seitentitel und Meta-Beschreibung
+ * ------------------------------------------------------------------ */
+
+/** Höchstlänge einer Meta-Beschreibung, bevor Suchmaschinen abschneiden. */
+const BESCHREIBUNG_MAX = 160;
+
+/** Kürzt an einer Wortgrenze und hängt ein Auslassungszeichen an. */
+function kuerze(text: string, laenge = BESCHREIBUNG_MAX): string {
+  if (text.length <= laenge) return text;
+  const schnitt = text.slice(0, laenge - 1);
+  const luecke = schnitt.lastIndexOf(' ');
+  return `${(luecke > laenge * 0.6 ? schnitt.slice(0, luecke) : schnitt).trimEnd()}…`;
+}
+
+/** Der Titel im Browser-Tab und in Suchergebnissen: „Die rote Frau — Alex Beer". */
+export function seitentitel(m: Medium): string {
+  const werk = [m.titel, autorAnzeige(m)].filter(Boolean).join(' — ');
+  return `${werk} · Büchereikatalog`;
+}
+
+/**
+ * Eine Meta-Beschreibung aus dem, was über den Titel bekannt ist.
+ *
+ * Bewusst als Sätze und nicht als aneinandergereihte Felder: Was hier steht, ist bei
+ * einer Google-Suche und beim Teilen eines Links das Einzige, was jemand sieht,
+ * bevor er klickt. Fehlende Angaben entfallen ersatzlos — wie überall im Katalog.
+ */
+export function metaBeschreibung(m: Medium): string {
+  const saetze: string[] = [];
+
+  const autor = autorAnzeige(m);
+  const kopf = [m.titel, autor && `von ${autor}`].filter(Boolean).join(' ');
+  saetze.push(kopf);
+
+  if (m.reihe) {
+    saetze.push(istGesetzt(m.band) ? `Band ${m.band} der Reihe „${m.reihe}"` : `Aus der Reihe „${m.reihe}"`);
+  }
+
+  if (m.figur) saetze.push(`Tonie-Figur: ${m.figur}`);
+
+  const merkmale = [
+    m.art,
+    m.genres?.join(', '),
+    istGesetzt(m.laufzeit_min) ? laufzeitText(m.laufzeit_min as number) : undefined,
+    istGesetzt(m.alter_ab) ? `ab ${m.alter_ab} Jahren` : undefined,
+    istGesetzt(m.jahr) ? `${m.verlag ? `${m.verlag} ` : ''}${m.jahr}` : m.verlag,
+    istGesetzt(m.seiten) ? `${m.seiten} Seiten` : undefined,
+  ]
+    .filter((t): t is string => istGesetzt(t))
+    .join(', ');
+  if (merkmale) saetze.push(merkmale);
+
+  saetze.push('Im Bestand der Bücherei');
+
+  return kuerze(`${saetze.join('. ')}.`);
 }
 
 /** Angaben zum Exemplar in der Bücherei. */

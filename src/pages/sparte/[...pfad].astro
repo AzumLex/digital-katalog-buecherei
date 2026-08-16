@@ -9,8 +9,10 @@
 import type { GetStaticPaths } from 'astro';
 import Grundgeruest from '../../layouts/Grundgeruest.astro';
 import Blaetterung from '../../components/Blaetterung.astro';
+import Filterpanel from '../../components/Filterpanel.astro';
 import Medieneintrag from '../../components/Medieneintrag.astro';
 import Sortierwahl from '../../components/Sortierwahl.astro';
+import { facettenDerSparte } from '../../lib/listendaten';
 import { SPARTEN, alleMedien, medienDerSparte, spartenNachName, type Medium, type Sparte } from '../../lib/daten';
 import { ankerIds } from '../../lib/autoren';
 import { autorAnker, spartenSegmente } from '../../lib/pfade';
@@ -73,6 +75,10 @@ const { sparte, sortierung, seite, anker } = Astro.props;
 const datei = spartenNachName.get(sparte);
 const bezeichnung = datei?.bezeichnung ?? sparte;
 
+// Welche Filter diese Sparte hat, steht schon beim Build fest — abgeleitet aus den
+// Daten, nicht je Sparte festgelegt. Die Werte samt Trefferzahlen füllt das Skript.
+const facetten = facettenDerSparte(sparte);
+
 const seitenTitel =
   seite.anzahlSeiten > 1
     ? `${bezeichnung} — Seite ${seite.nummer} von ${seite.anzahlSeiten}`
@@ -91,7 +97,7 @@ const seitenTitel =
 
   {
     seite.anzahlEintraege > 0 ? (
-      <p class="bilanz">
+      <p class="bilanz" id="bilanz">
         {seite.anzahlEintraege.toLocaleString('de-AT')} Titel
         {seite.anzahlSeiten > 1 && (
           <>
@@ -107,24 +113,40 @@ const seitenTitel =
 
   {
     seite.anzahlEintraege > 0 && (
-      <>
+      <div
+        id="katalogansicht"
+        data-sparte={sparte}
+        data-sortierung={sortierung}
+        data-seite={seite.nummer}
+      >
         <div class="werkzeuge">
           <Sortierwahl sparte={sparte} aktuell={sortierung} neuVerfuegbar={neuVerfuegbar} />
         </div>
 
+        <Filterpanel sparte={sparte} facetten={facetten} />
+
+        <div class="filter-aktiv" id="filter-aktiv" hidden />
+
         <p class="nur-vorlesen">Sortierung: {SORTIER_TEXTE[sortierung].lang}</p>
 
-        <ul class="liste">
+        <ul class="katalogliste" id="katalogliste">
           {seite.eintraege.map((medium) => {
             const schluessel = anker.get(medium.id);
             return <Medieneintrag medium={medium} anker={schluessel ? autorAnker(schluessel) : undefined} />;
           })}
         </ul>
 
-        <Blaetterung sparte={sparte} sortierung={sortierung} seite={seite} />
-      </>
+        <div id="blaetterung">
+          <Blaetterung sparte={sparte} sortierung={sortierung} seite={seite} />
+        </div>
+      </div>
     )
   }
+
+  <script>
+    import { starteFilter } from '../../scripts/filter';
+    starteFilter();
+  </script>
 
   {
     seite.anzahlEintraege === 0 && (
@@ -171,11 +193,6 @@ const seitenTitel =
     border-bottom: 1px solid var(--farbe-rand);
   }
 
-  .liste {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
 
   .leerhinweis {
     margin-top: var(--abstand-4);

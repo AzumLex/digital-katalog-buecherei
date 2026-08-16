@@ -12,8 +12,8 @@
  *   /sparte/romane/titel/seite-2/   Sparte, nach Titel sortiert, Seite 2
  *   /titel/rom-beer-die-rote-frau-6761/
  */
-import type { Sparte } from './daten';
-import { STANDARD_SORTIERUNG, type Sortierung } from './sortierung';
+import type { Sparte } from './daten.ts';
+import { STANDARD_SORTIERUNG, type Sortierung } from './sortierung.ts';
 
 /** Die Pfadsegmente einer Listenansicht, ohne führendes `sparte/`. */
 export function spartenSegmente(

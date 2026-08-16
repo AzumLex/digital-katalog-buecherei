@@ -9,9 +9,9 @@
  * Beides wird hier einmal berechnet, damit Listenansicht und Detailseite sich nicht
  * widersprechen können.
  */
-import { SPARTEN, medienDerSparte, type Medium, type Sparte } from './daten';
-import { autorAnzeige, autorSchluessel } from './anzeige';
-import { PRO_SEITE, STANDARD_SORTIERUNG, sortiere } from './sortierung';
+import { SPARTEN, medienDerSparte, type Medium, type Sparte } from './daten.ts';
+import { autorAnzeige, autorSchluessel } from './anzeige.ts';
+import { PRO_SEITE, STANDARD_SORTIERUNG, sortiere } from './sortierung.ts';
 
 export interface Autorenblock {
   /** Aus Nach- und Vorname gebildeter Schlüssel, siehe autorSchluessel. */

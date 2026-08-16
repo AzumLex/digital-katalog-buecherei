@@ -156,10 +156,13 @@ ausdrücklich erlaubt und damit in Ordnung.
 - **Fünf Sparten sind leere Gerüste:** `sachbuecher`, `kinderbuecher`, `kinder-sachbuecher`,
   `spiele`, `cds`. Die Dateien existieren mit `"anzahl": 0`, damit Navigation und
   Sparten-Übersicht schon vollständig sind.
-- **`erfasst_am` ist nirgends gesetzt.** Das ist die Grundlage für einen späteren
-  „Neuzugänge"-Filter — `jahr` taugt dafür nicht, weil ein 2019 erschienenes Buch letzte
-  Woche gekauft worden sein kann. Ab dem nächsten Neuzugang sollte das Feld mitgepflegt
-  werden.
+- **`erfasst_am` ist nirgends gesetzt.** Das ist die Grundlage für den „Neu im
+  Bestand"-Filter — `jahr` taugt dafür nicht, weil ein 2019 erschienenes Buch letzte
+  Woche gekauft worden sein kann. Der Filter ist gebaut und geprüft, steht aber bei jeder
+  Sparte auf 0 Treffern und ist deshalb ausgegraut. Er füllt sich beim nächsten Build von
+  allein, sobald das erste Aufnahmedatum gepflegt ist. Dasselbe gilt für die Sortierung
+  „Zuletzt aufgenommen" und den Abschnitt „Neu im Bestand" auf der Startseite — drei
+  Funktionen, die alle an diesem einen Feld hängen.
 - **`cover_url` ist nirgends gesetzt.** Für Titel mit gültiger ISBN ließen sich Cover später
   automatisch beziehen.
 
