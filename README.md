@@ -20,25 +20,25 @@ werden erst geholt, wenn jemand sie wirklich braucht.
 
 ## Schnellstart
 
-Gebraucht werden [Node.js](https://nodejs.org/) 18 oder neuer und
-[Python](https://www.python.org/downloads/) 3.
+Gebraucht wird **nur [Node.js](https://nodejs.org/) 18 oder neuer.** Python ist nicht
+nötig — weder zum Entwickeln noch zum Veröffentlichen (siehe „Python ist optional").
 
 ```bash
-npm install                    # einmalig
-pip install -r requirements.txt  # einmalig, für die Datenprüfung
-npm run dev                    # startet http://localhost:4321
+npm install       # einmalig
+npm run dev       # startet http://localhost:4321
 ```
 
 | Befehl | Was er tut |
 |---|---|
 | `npm run dev` | Entwicklungsserver mit automatischem Neuladen |
-| `npm run validate` | prüft alle Daten gegen das Schema |
+| `npm run validate` | prüft alle Daten gegen das Schema (Node, läuft überall) |
 | `npm run build` | erzeugt die fertige Website in `dist/` (prüft vorher die Daten) |
 | `npm run preview` | zeigt das Ergebnis aus `dist/` lokal an |
 | `npm run check` | prüft Astro- und TypeScript-Dateien auf Fehler |
 | `npm run suchtest` | prüft die Suche gegen den gebauten Index (nach `npm run build`) |
 | `npm run filtertest` | prüft Facetten und Filter gegen die gebauten Sparten-Dateien |
-| `npm run vercelpruefen` | prüft `vercel.json` gegen das offizielle Schema von Vercel |
+| `npm run validate:py` | dieselbe Datenprüfung mit `validate.py` — braucht Python |
+| `npm run vercelpruefen` | prüft `vercel.json` gegen das Schema von Vercel — braucht Python |
 
 ---
 
@@ -478,8 +478,8 @@ regt Build, Ausgabeverzeichnis, Installationsbefehl und Cache-Header, die GitHub
    einzurichten.
 2. Auf [vercel.com](https://vercel.com) → **Add New… → Project** → das Repository wählen.
 3. **Nichts umstellen, einfach Deploy klicken.** Vercel liest `vercel.json`; Framework,
-   Build Command, Output Directory und der Installationsbefehl samt `pip install` stehen
-   dort schon.
+   Build Command (`npm run build`), Output Directory (`dist`) und Install Command
+   (`npm install`) stehen dort schon. Der Build braucht ausschließlich Node.
 4. Optional, aber empfohlen: unter **Settings → Environment Variables** die Variable
    `SITE_URL` auf die endgültige Adresse setzen (z. B. `https://buecherei-musterdorf.at`).
    Sie landet in `sitemap.xml`, `robots.txt` und den Canonical-Angaben. Ohne sie nimmt der
@@ -527,16 +527,42 @@ Die letzte Regel schließt die Sonderpfade ausdrücklich aus. Das ist nötig, we
 Vercel-Header-Regeln sonst gegenseitig überschreiben und eine Catch-all-Regel die
 `immutable`-Angabe wieder aufheben würde.
 
-### Wenn der Build an Python scheitert
+### Python ist optional
 
-Sollten weder `pip3` noch `pip` in der Build-Umgebung verfügbar sein, schlägt die
-Installation fehl — und damit der Deploy. Das ist die sichere Richtung: lieber nicht
-veröffentlichen als ungeprüft veröffentlichen.
+**Für den Build und das Veröffentlichen wird kein Python gebraucht.** Die Datenprüfung, die
+vor jedem Build läuft, steckt in `scripts/validate.mjs` und nutzt
+[ajv](https://ajv.js.org/) gegen dasselbe `schema/medium.schema.json`. Sie prüft dasselbe
+wie zuvor:
 
-Wer trotzdem ohne Python auf dem Server deployen will, setzt in Vercel das Build Command
-auf `npx astro build` und den Install Command auf `npm install`. Dann entfällt dort nur die
-Schemaprüfung — die Prüfung auf doppelte `id` steckt in `src/lib/daten.ts` und läuft weiter
-bei jedem Build, und die GitHub Action prüft ohnehin vollständig.
+1. jeder Eintrag erfüllt das Schema,
+2. `anzahl` stimmt mit der Zahl der Einträge überein,
+3. keine `id` kommt zweimal vor —
+
+und beendet sich bei Fehlern mit Exit-Code 1, wodurch der Build abbricht.
+
+`requirements.txt` und `scripts/validate.py` bleiben trotzdem im Projekt. Sie werden nur
+noch von zwei Zusatzskripten gebraucht, die **niemand für den Betrieb ausführen muss**:
+
+| Skript | wofür |
+|---|---|
+| `npm run validate:py` | dieselbe Datenprüfung, als Gegenprobe zur Node-Fassung |
+| `npm run vercelpruefen` | prüft `vercel.json` gegen das offizielle Schema von Vercel |
+
+Wer diese beiden nutzen will, installiert einmalig:
+
+```bash
+pip install -r requirements.txt
+```
+
+Die GitHub Action lässt beide Datenprüfungen laufen. Sollten die Node- und die
+Python-Fassung je unterschiedlich urteilen, fällt das dort auf — und nicht erst, wenn sich
+jemand lokal auf ein falsches „0 Fehler" verlässt.
+
+> **Kleiner Unterschied, bewusst so:** Beide Prüfungen werten `"format": "date"` nicht aus.
+> Pythons `jsonschema` tut das ohne eigens gesetzten FormatChecker nicht, und ajv ist
+> deshalb mit `validateFormats: false` konfiguriert. Ein unsinniges Datum in `erfasst_am`
+> fällt also keiner der beiden auf. Das war vorher schon so und wurde absichtlich nicht
+> geändert — zwei Prüfungen, die sich uneins sind, wären schlimmer.
 
 ---
 
@@ -568,8 +594,9 @@ src/components/             Kachel, Listenzeile, Sortierwahl, Blätterung, Suchl
 src/layouts/                gemeinsames Seitengerüst
 src/styles/global.css       Farben, Schriften, Abstände als CSS Custom Properties
 
-scripts/validate.py         Schemaprüfung der Daten
-scripts/vercelpruefen.py    prüft vercel.json gegen das Schema von Vercel
+scripts/validate.mjs        Datenprüfung mit ajv — läuft vor jedem Build, nur Node
+scripts/validate.py         dieselbe Prüfung in Python, optionale Gegenprobe
+scripts/vercelpruefen.py    prüft vercel.json gegen das Schema von Vercel (optional)
 scripts/python.mjs          startet ein Python-Skript mit dem passenden Interpreter
 scripts/suchtest.mts        Prüfungen für die Suche
 scripts/filtertest.mts      Prüfungen für die Filter

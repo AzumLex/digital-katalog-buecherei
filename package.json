@@ -9,7 +9,8 @@
     "build": "astro build",
     "prebuild": "npm run validate",
     "preview": "astro preview",
-    "validate": "node scripts/python.mjs scripts/validate.py",
+    "validate": "node scripts/validate.mjs",
+    "validate:py": "node scripts/python.mjs scripts/validate.py",
     "suchtest": "node --experimental-strip-types scripts/suchtest.mts",
     "filtertest": "node --experimental-strip-types scripts/filtertest.mts",
     "vercelpruefen": "node scripts/python.mjs scripts/vercelpruefen.py",
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@types/node": "^26.2.0",
+    "ajv": "^8.20.0",
     "astro": "^5.14.1",
     "typescript": "^5.9.2"
   },

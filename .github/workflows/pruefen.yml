@@ -28,6 +28,8 @@ jobs:
           node-version: '22'
           cache: npm
 
+      # Python wird für den Build NICHT gebraucht — nur für die beiden
+      # Zusatzprüfungen weiter unten. Auf dem Deploy-Server ist es nirgends nötig.
       - name: Python einrichten
         uses: actions/setup-python@v5
         with:
@@ -40,9 +42,16 @@ jobs:
           pip install -r requirements.txt
 
       # Zuerst und für sich allein: Bei kaputten Daten soll die Fehlermeldung ganz
-      # oben stehen und nicht in der Build-Ausgabe untergehen.
+      # oben stehen und nicht in der Build-Ausgabe untergehen. Das ist dieselbe
+      # Prüfung, die auch vor jedem Build läuft — in Node, ohne Python.
       - name: Daten gegen das Schema prüfen
         run: npm run validate
+
+      # Gegenprobe mit der Python-Fassung, die für die lokale Arbeit erhalten bleibt.
+      # Beide prüfen dasselbe; wenn sie je auseinanderlaufen, fällt es hier auf und
+      # nicht erst, wenn jemand sich lokal auf ein falsches „0 Fehler" verlässt.
+      - name: Gegenprobe mit validate.py
+        run: npm run validate:py
 
       # Vercel lehnt eine Konfiguration mit einem einzigen unbekannten Schlüssel
       # komplett ab — und zwar erst beim Deploy. Hier fällt es sofort auf.

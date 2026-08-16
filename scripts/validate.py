@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Prüft alle src/data/*.json gegen schema/medium.schema.json. Exit-Code 1 bei Fehlern."""
+"""Prüft alle src/data/*.json gegen schema/medium.schema.json. Exit-Code 1 bei Fehlern.
+
+NICHT Teil des Builds. Die Prüfung, die vor jedem Build läuft, steckt in
+scripts/validate.mjs und braucht nur Node — damit auf dem Deploy-Server kein Python
+vorhanden sein muss. Dieses Skript bleibt für die lokale Arbeit erhalten und prüft
+dasselbe: Schemakonformität, doppelte ids, und dass `anzahl` zur Zahl der Einträge
+passt.
+
+Aufruf: `npm run validate:py` (oder `python scripts/validate.py`).
+Braucht `pip install -r requirements.txt`.
+"""
 import json, sys, glob, os
 from collections import Counter
 from jsonschema import Draft202012Validator

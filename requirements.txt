@@ -1,2 +1,10 @@
-# Wird nur von scripts/validate.py gebraucht (npm run validate).
+# OPTIONAL — für den Build und das Veröffentlichen nicht nötig.
+#
+# Gebraucht nur von zwei Zusatzskripten, die von Hand oder in der GitHub Action
+# laufen:
+#   scripts/validate.py       Gegenprobe zur Datenprüfung (npm run validate:py)
+#   scripts/vercelpruefen.py  prüft vercel.json (npm run vercelpruefen)
+#
+# Die Datenprüfung, die vor jedem Build läuft, steckt in scripts/validate.mjs und
+# braucht nur Node.
 jsonschema>=4.20
