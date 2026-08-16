@@ -8,10 +8,13 @@ Der Katalog ist zugleich Vorbereitung auf den späteren Umstieg auf ein richtige
 Bibliotheksprogramm: Die Datenfelder sind schon so geschnitten, dass sie sich ohne
 Informationsverlust dorthin übernehmen lassen.
 
-**Stand: Phase 4.** Startseite, Sparten-Listen mit Filtern, eine Detailseite je Titel und
-die Volltextsuche stehen — 1057 fertig gebaute Seiten plus Such- und Filterdaten.
-Stöbern, Sortieren und Blättern funktionieren ohne JavaScript; Suche und Filter brauchen
-es.
+**Stand: Phase 5 — bereit zum Veröffentlichen.** Startseite, Sparten-Listen mit Filtern,
+eine Detailseite je Titel, Volltextsuche, Sitemap und 404-Seite stehen: 1058 fertig gebaute
+Seiten plus Such- und Filterdaten. Stöbern, Sortieren und Blättern funktionieren ohne
+JavaScript; Suche und Filter brauchen es.
+
+Eine frisch aufgerufene Seite wiegt **3,5 bis 12 KB** (brotli). Such- und Filterdaten
+werden erst geholt, wenn jemand sie wirklich braucht.
 
 ---
 
@@ -35,6 +38,7 @@ npm run dev                    # startet http://localhost:4321
 | `npm run check` | prüft Astro- und TypeScript-Dateien auf Fehler |
 | `npm run suchtest` | prüft die Suche gegen den gebauten Index (nach `npm run build`) |
 | `npm run filtertest` | prüft Facetten und Filter gegen die gebauten Sparten-Dateien |
+| `npm run vercelpruefen` | prüft `vercel.json` gegen das offizielle Schema von Vercel |
 
 ---
 
@@ -564,8 +568,9 @@ src/components/             Kachel, Listenzeile, Sortierwahl, Blätterung, Suchl
 src/layouts/                gemeinsames Seitengerüst
 src/styles/global.css       Farben, Schriften, Abstände als CSS Custom Properties
 
-scripts/validate.py         Schemaprüfung
-scripts/validate.mjs        startet validate.py mit dem passenden Python
+scripts/validate.py         Schemaprüfung der Daten
+scripts/vercelpruefen.py    prüft vercel.json gegen das Schema von Vercel
+scripts/python.mjs          startet ein Python-Skript mit dem passenden Interpreter
 scripts/suchtest.mts        Prüfungen für die Suche
 scripts/filtertest.mts      Prüfungen für die Filter
 

@@ -44,6 +44,11 @@ jobs:
       - name: Daten gegen das Schema prüfen
         run: npm run validate
 
+      # Vercel lehnt eine Konfiguration mit einem einzigen unbekannten Schlüssel
+      # komplett ab — und zwar erst beim Deploy. Hier fällt es sofort auf.
+      - name: vercel.json gegen das Vercel-Schema prüfen
+        run: npm run vercelpruefen
+
       - name: Typen prüfen
         run: npm run check
 

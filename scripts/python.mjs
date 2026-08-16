@@ -1,16 +1,25 @@
 #!/usr/bin/env node
 /**
- * Startet scripts/validate.py mit dem Python, das auf diesem Rechner vorhanden ist.
+ * Startet ein Python-Skript mit dem Python, das auf diesem Rechner vorhanden ist.
  *
  * Warum dieser Umweg: Unter Windows heißt Python meist `python`, unter Linux und
  * macOS (und im Vercel-Build) `python3`. Ein fest verdrahteter Name würde auf der
- * jeweils anderen Seite scheitern. Mit `PYTHON=/pfad/zu/python npm run validate`
- * lässt sich ein bestimmter Interpreter erzwingen.
+ * jeweils anderen Seite scheitern. Mit `PYTHON=/pfad/zu/python npm run …` lässt sich
+ * ein bestimmter Interpreter erzwingen.
+ *
+ * Aufruf: `node scripts/python.mjs scripts/validate.py`
  */
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
-const skript = fileURLToPath(new URL('./validate.py', import.meta.url));
+const [, , skriptPfad, ...weitere] = process.argv;
+
+if (!skriptPfad) {
+  console.error('Aufruf: node scripts/python.mjs <skript.py> [argumente …]');
+  process.exit(2);
+}
+
+const skript = resolve(skriptPfad);
 
 const kandidaten = process.env.PYTHON
   ? [process.env.PYTHON]
@@ -48,7 +57,9 @@ if (!python) {
   process.exit(1);
 }
 
-const lauf = spawnSync(python.befehl, [python.shell ? `"${skript}"` : skript], {
+const argumente = [python.shell ? `"${skript}"` : skript, ...weitere];
+
+const lauf = spawnSync(python.befehl, argumente, {
   stdio: 'inherit',
   shell: python.shell,
   env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
@@ -61,9 +72,8 @@ if (lauf.error) {
 
 if (lauf.status !== 0) {
   console.error(
-    '\nDie Datenprüfung ist fehlgeschlagen. Der Build wurde abgebrochen,\n' +
-      'damit fehlerhafte Daten nicht veröffentlicht werden.\n' +
-      'Fehlt das Paket `jsonschema`? Dann:  pip install -r requirements.txt\n',
+    `\n${skriptPfad} ist fehlgeschlagen.\n` +
+      'Fehlt ein Python-Paket? Dann:  pip install -r requirements.txt\n',
   );
 }
 

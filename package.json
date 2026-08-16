@@ -9,9 +9,10 @@
     "build": "astro build",
     "prebuild": "npm run validate",
     "preview": "astro preview",
-    "validate": "node scripts/validate.mjs",
+    "validate": "node scripts/python.mjs scripts/validate.py",
     "suchtest": "node --experimental-strip-types scripts/suchtest.mts",
     "filtertest": "node --experimental-strip-types scripts/filtertest.mts",
+    "vercelpruefen": "node scripts/python.mjs scripts/vercelpruefen.py",
     "check": "astro check",
     "astro": "astro"
   },
