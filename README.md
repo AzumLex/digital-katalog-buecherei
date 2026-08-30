@@ -552,7 +552,7 @@ Der Katalog ist eine rein statische Website. Alles Nötige steht im Projekt: `ve
 regt Build, Ausgabeverzeichnis, Installationsbefehl und Cache-Header, die GitHub Action in
 `.github/workflows/pruefen.yml` prüft jede Änderung.
 
-### Einmalig einrichten
+### Schritt 1 — Den Katalog online bringen
 
 1. Projekt zu GitHub pushen. Die Action läuft ab dem ersten Push von allein — es ist nichts
    einzurichten.
@@ -564,6 +564,106 @@ regt Build, Ausgabeverzeichnis, Installationsbefehl und Cache-Header, die GitHub
    `SITE_URL` auf die endgültige Adresse setzen (z. B. `https://buecherei-musterdorf.at`).
    Sie landet in `sitemap.xml`, `robots.txt` und den Canonical-Angaben. Ohne sie nimmt der
    Build automatisch die Vercel-Produktionsadresse.
+
+> **Sobald eine eigene Domain dazukommt, ist `SITE_URL` Pflicht.** Aus ihr entsteht beim
+> Build die Liste der Rechnernamen, unter denen sich die Verwaltung erreichen lässt
+> (`security.allowedDomains` in `astro.config.mjs`). Fehlt die eigene Domain dort, lehnt
+> Astro jede Formulareingabe mit „Cross-site POST form submissions are forbidden" ab — die
+> Anmeldung eingeschlossen. Die `…vercel.app`-Adressen sind immer abgedeckt.
+
+Damit läuft der Katalog. Die Verwaltung unter `/verwaltung/` ist zwar mitgebaut, sagt aber
+noch, dass sie nicht eingerichtet ist — dafür fehlen ihr die vier Werte aus Schritt 3.
+
+### Schritt 2 — Ein Zugriffstoken bei GitHub erzeugen
+
+Damit die Verwaltung Änderungen ins Repository schreiben kann, braucht sie ein eigenes
+Token. Es gehört zum **Konto**, nicht zum Repository:
+
+1. GitHub → rechts oben aufs Profilbild → **Settings** (die Einstellungen des Kontos) →
+   ganz unten **Developer settings** → **Personal access tokens** → **Fine-grained tokens**
+   → **Generate new token**.
+2. Ausfüllen:
+   - **Token name**: z. B. `buecherei-verwaltung`
+   - **Expiration**: ein Datum wählen und **notieren**. Ein abgelaufenes Token ist das
+     wahrscheinlichste Problem im Betrieb; die Verwaltung warnt ab 30 Tagen vorher von
+     selbst.
+   - **Resource owner**: das Konto (oder die Organisation), dem das Repository gehört
+   - **Repository access**: **Only select repositories** → genau dieses eine Repository
+   - **Permissions → Repository permissions**: **Contents** auf **Read and write**. Sonst
+     nichts. („Metadata: Read-only" setzt GitHub dabei von allein mit — das ist richtig so.)
+3. **Generate token** und den Wert sofort kopieren. Er beginnt mit `github_pat_` und wird
+   **nur ein einziges Mal angezeigt**.
+
+> Mehr Rechte braucht die Verwaltung nicht, und mehr soll sie nicht haben: Mit diesem Token
+> lässt sich in genau einem Repository der Inhalt ändern — keine Einstellungen, keine
+> Mitglieder, kein anderes Projekt.
+
+### Schritt 3 — Passwort erzeugen und die Variablen eintragen
+
+```bash
+npm run passwort
+```
+
+Das Skript fragt nach einem Passwort (mindestens 12 Zeichen) und gibt zwei fertige Zeilen
+aus: `VERWALTUNG_PASSWORT_HASH` und `SITZUNG_GEHEIMNIS`.
+
+> **Es ändert nichts im Projekt.** Das Skript schreibt in keine Datei, es gibt nichts zu
+> committen und nichts zu pushen. Das Passwort selbst verlässt den Rechner nicht — angezeigt
+> wird nur der Hash, aus dem es sich nicht zurückrechnen lässt.
+
+Dann in Vercel unter **Settings → Environment Variables** eintragen, alle mit **Environment:
+Production**:
+
+| Variable | Pflicht | Woher |
+|---|---|---|
+| `VERWALTUNG_PASSWORT_HASH` | **ja** | erste Zeile aus `npm run passwort` |
+| `SITZUNG_GEHEIMNIS` | **ja** | zweite Zeile aus `npm run passwort` |
+| `GITHUB_TOKEN` | **ja** | das Token aus Schritt 2 (`github_pat_…`) |
+| `GITHUB_REPOSITORY` | empfohlen | `konto/repository`, genau wie in der GitHub-Adresszeile |
+| `GITHUB_BRANCH` | nein | nur, wenn der Hauptzweig nicht `main` heißt |
+| `COMMIT_AUTOR_NAME` | nein | steht im Protokoll neben jeder Änderung, z. B. `Bücherei Musterdorf` |
+| `COMMIT_AUTOR_EMAIL` | nein | eine Sammeladresse der Bücherei |
+
+Drei Dinge, die dabei schiefgehen können:
+
+- **Kein `PUBLIC_` vor einen dieser Namen.** Ohne dieses Präfix stellt Astro eine Variable im
+  Browser gar nicht erst bereit — daran hängt, dass kein Geheimnis im ausgelieferten Teil
+  landet.
+- **`GITHUB_TOKEN` nur für „Production", nicht für „Preview".** Sonst könnte eine Vorschau
+  aus einem beliebigen Zweig in `main` schreiben. Dass die Verwaltung in der Vorschau nicht
+  speichern kann, ist der Zweck und kein Mangel.
+- **Ein neues `SITZUNG_GEHEIMNIS` meldet sofort alle Geräte ab.** Das ist der Not-Aus, wenn
+  ein angemeldetes Handy verloren geht.
+
+### Schritt 4 — Einmal neu bereitstellen
+
+Vercel liest die Variablen **beim Erzeugen der Funktionen**. Ein Wert, der nach dem letzten
+Deploy eingetragen wurde, wirkt deshalb noch nicht.
+
+**Dafür ist kein Push nötig:** In Vercel unter **Deployments** beim obersten Eintrag auf
+**⋯ → Redeploy**. (Wer die Variablen schon im Import-Bildschirm des allerersten Deploys
+einträgt, spart sich diesen Schritt.)
+
+### Schritt 5 — Nachsehen, ob es läuft
+
+1. `https://<adresse>/verwaltung/` aufrufen → Anmeldeformular, Passwort eingeben.
+2. Die Übersicht zeigt die Zahlen aus dem Bestand **und** die letzten Änderungen. Erscheint
+   dort stattdessen ein Satz über ein fehlendes Zugriffstoken, ist eine Variable nicht gesetzt
+   oder der Redeploy fehlt.
+3. **Einen Probetitel anlegen und wieder löschen.** Danach steht im Protokoll ein Eintrag
+   „Neu: …" und einer „Gelöscht: …", und im Repository liegt ein Commit von „Bücherei". Das
+   ist der Beweis, dass der ganze Weg steht.
+
+### Später etwas ändern
+
+- **Passwort ändern:** `npm run passwort` erneut ausführen, nur `VERWALTUNG_PASSWORT_HASH`
+  ersetzen, neu bereitstellen. (Das neue `SITZUNG_GEHEIMNIS` aus derselben Ausgabe braucht
+  man nicht zu übernehmen — außer man will zugleich alle Geräte abmelden.)
+- **Token erneuern:** neues Token wie in Schritt 2, `GITHUB_TOKEN` ersetzen, neu
+  bereitstellen.
+- **Lokal ausprobieren:** dieselben Werte in eine Datei `.env.local` im Projektordner
+  schreiben (`NAME=wert`, eine Zeile je Variable) und `npm run dev` starten. Die Datei ist in
+  `.gitignore` ausgenommen und darf **nie** ins Repository.
 
 ### Zwei Netze gegen kaputte Daten
 

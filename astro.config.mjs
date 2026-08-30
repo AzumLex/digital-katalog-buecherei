@@ -16,6 +16,46 @@ const seitenadresse =
     ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
     : 'https://buecherei.example');
 
+/**
+ * Unter welchen Rechnernamen diese Seite erreichbar ist — und warum das hier stehen muss.
+ *
+ * Hinter Vercel läuft die Serverfunktion nicht selbst unter der öffentlichen Adresse: Der
+ * echte Rechnername steht in den Kopfzeilen `Host` und `X-Forwarded-Host`. Astro glaubt
+ * beiden **nur**, wenn sie zu einem Muster in dieser Liste passen — sonst gelten sie als
+ * untergeschoben (jeder kann eine Kopfzeile setzen), und `Astro.url` fällt auf
+ * `https://localhost/…` zurück. Ohne diese Liste ist der Rechnername also in jeder Anfrage
+ * falsch, und zwei Dinge gehen still kaputt:
+ *
+ * 1. **Kein Formular lässt sich mehr abschicken.** Astros Schutz gegen fremde Formulare
+ *    vergleicht die `Origin`-Kopfzeile des Browsers mit `Astro.url.origin`. Der Browser
+ *    sagt `https://…vercel.app`, Astro rechnet mit `https://localhost` — die Anmeldung
+ *    endet mit „Cross-site POST form submissions are forbidden" (403).
+ * 2. **Das Sitzungscookie verliert sein `Secure`.** `sitzungsCookieAngaben` in
+ *    `src/lib/anmeldung.ts` entscheidet am Rechnernamen, ob die Seite gerade lokal läuft;
+ *    „localhost" heißt dort „ohne TLS, also ohne `Secure`" — richtig auf dem eigenen
+ *    Rechner, falsch im Netz.
+ *
+ * Deshalb drei Muster, jedes mit Grund:
+ *
+ * - **Die eigene Adresse** aus `SITE_URL` (oder der Vercel-Produktionsadresse). Wer später
+ *   eine eigene Domain aufschaltet, **muss `SITE_URL` setzen** — sonst steht sie hier nicht
+ *   und die Verwaltung lehnt jede Eingabe ab.
+ * - **`**.vercel.app`** für die Vorschau-Bereitstellungen, die bei jedem Zweig unter einem
+ *   neuen Namen entstehen. Ohne dieses Muster ließe sich in einer Vorschau nichts
+ *   ausprobieren.
+ * - **`localhost`** für `npm run dev`.
+ *
+ * Der Schutz selbst (`security.checkOrigin`) bleibt eingeschaltet. Er wird hier nicht
+ * abgeschaltet, sondern bekommt endlich die Wahrheit über den Rechnernamen zu sehen — das
+ * ist der Unterschied zwischen „Warnung weg" und „Fehler behoben".
+ */
+const eigeneAdresse = new URL(seitenadresse);
+const erlaubteRechnernamen = [
+  { hostname: eigeneAdresse.hostname, protocol: eigeneAdresse.protocol.replace(':', '') },
+  { hostname: '**.vercel.app', protocol: 'https' },
+  { hostname: 'localhost', protocol: 'http' },
+];
+
 // Rein statischer Katalog: Der Build erzeugt fertiges HTML, das Vercel nur noch
 // ausliefert. Kein Server, keine Datenbank, keine Laufzeit-Abhängigkeiten.
 //
@@ -46,6 +86,10 @@ export default defineConfig({
     maxDuration: 30,
   }),
   site: seitenadresse,
+  security: {
+    // Siehe `erlaubteRechnernamen` oben. Ohne diese Zeile scheitert jede Anmeldung.
+    allowedDomains: erlaubteRechnernamen,
+  },
   // Astro erzeugt Verzeichnisse mit index.html; dazu passt trailingSlash: true in
   // der vercel.json. Beides muss zusammenpassen, sonst leitet Vercel im Kreis.
   trailingSlash: 'always',
