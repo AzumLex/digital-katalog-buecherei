@@ -1,0 +1,215 @@
+---
+/**
+ * „Bearbeiten“ — derselbe Eintrag, den der Katalog zeigt, nur änderbar.
+ *
+ * Die Seite liest den Eintrag bei jedem Aufruf frisch aus der Ablage und gibt die
+ * **Fassung** der Datei an das Formular weiter. Die kommt beim Speichern zurück und ist
+ * der Schutz gegen den zweiten offenen Tab (plan.md § 5): Hat sich die Datei
+ * zwischenzeitlich geändert, wird nicht gespeichert, sondern erklärt.
+ *
+ * Hier steht auch der Löschbereich — und mit ihm der Satz, den plan.md § 4.5 ausdrücklich
+ * in der Oberfläche und nicht nur in der Dokumentation verlangt: Ein aussortiertes Buch
+ * wird nicht gelöscht, es bekommt den Status „ausgeschieden“.
+ */
+import Grundgeruest from '../../../layouts/Grundgeruest.astro';
+import Medienformular from '../../../components/Medienformular.astro';
+import { findeMedium, type Fundstelle } from '../../../lib/pflege';
+import { AblageFehler } from '../../../lib/github';
+import { SPARTEN, spartenUebersicht, type Sparte } from '../../../lib/daten';
+import { titelPfad } from '../../../lib/pfade';
+
+export const prerender = false;
+
+const id = Astro.params.id ?? '';
+const gewaehlt = Astro.url.searchParams.get('sparte');
+const hinweis: Sparte | undefined = SPARTEN.includes(gewaehlt as Sparte)
+  ? (gewaehlt as Sparte)
+  : undefined;
+
+let fund: Fundstelle | null = null;
+let fehler: string | null = null;
+
+try {
+  fund = await findeMedium(id, hinweis);
+  // Ein Eintrag, den es nicht gibt, ist kein Fehler der Person, aber auch keine Seite:
+  // Der Statuscode sagt das dem Browser und allem, was mitliest.
+  if (!fund) Astro.response.status = 404;
+} catch (ausnahme) {
+  Astro.response.status = 503;
+  fehler =
+    ausnahme instanceof AblageFehler
+      ? ausnahme.message
+      : 'Der Eintrag ließ sich gerade nicht lesen. Bitte die Seite neu laden; wenn es ' +
+        'wieder nicht geht, bei der Person melden, die den Katalog betreut.';
+}
+
+const bezeichnung = fund
+  ? (spartenUebersicht.find((e) => e.sparte === fund!.sparte)?.bezeichnung ?? fund.sparte)
+  : '';
+
+const titel = fund ? `${fund.medium.titel} bearbeiten · Verwaltung` : 'Nicht gefunden · Verwaltung';
+---
+
+<Grundgeruest titel={titel} nichtIndexieren>
+  <nav class="brotkrumen" aria-label="Pfad">
+    <a href="/verwaltung/">Verwaltung</a> <span aria-hidden="true">›</span>
+    <a href="/verwaltung/bestand/">Bestand</a> <span aria-hidden="true">›</span>
+    {fund ? fund.medium.titel : 'Nicht gefunden'}
+  </nav>
+
+  {fehler && <p class="fehler">{fehler}</p>}
+
+  {
+    !fehler && !fund && (
+      <>
+        <h1 class="ueberschrift">Diesen Eintrag gibt es nicht</h1>
+        <p>
+          Unter der Kennung <code>{id}</code> ist nichts im Bestand. Vermutlich wurde der
+          Eintrag in der Zwischenzeit gelöscht — dann liegt er im{' '}
+          <a href="/verwaltung/papierkorb/">Papierkorb</a> und lässt sich dort zurückholen.
+        </p>
+        <p>
+          <a href="/verwaltung/bestand/">Zurück zum Bestand</a>
+        </p>
+      </>
+    )
+  }
+
+  {
+    fund && (
+      <>
+        <div class="kopf">
+          <h1 class="ueberschrift">{fund.medium.titel}</h1>
+          <a class="ansehen" href={titelPfad(fund.medium.id)}>
+            Im Katalog ansehen
+          </a>
+        </div>
+
+        <p class="stand">
+          {bezeichnung} · Kennung <code>{fund.medium.id}</code>
+        </p>
+
+        <Medienformular medium={fund.medium} fassung={fund.fassung} />
+
+        <section class="loeschen" aria-labelledby="loeschen-titel">
+          <h2 id="loeschen-titel" class="abschnitt">Diesen Eintrag löschen</h2>
+
+          <p>
+            <strong>Buch aussortiert, verkauft oder verschenkt?</strong> Dann bitte
+            <em>nicht</em> löschen. Setzen Sie oben den <strong>Status</strong> auf
+            „ausgeschieden“ und speichern Sie. Der Titel bleibt dann im Katalog sichtbar —
+            mit dem Vermerk, dass er nicht mehr da ist.
+          </p>
+
+          <p>
+            <strong>Löschen ist für Einträge gedacht, die aus Versehen entstanden sind</strong>
+            — doppelt angelegt, falsch eingetippt, gar nie vorhanden gewesen. Der Eintrag
+            wandert in den <a href="/verwaltung/papierkorb/">Papierkorb</a> und lässt sich dort
+            jederzeit zurückholen. Verloren geht nichts.
+          </p>
+
+          <button type="button" id="loeschen">In den Papierkorb legen</button>
+        </section>
+      </>
+    )
+  }
+</Grundgeruest>
+
+<style>
+  .brotkrumen {
+    margin-bottom: var(--abstand-3);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .kopf {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--abstand-3);
+  }
+
+  .ueberschrift {
+    margin: 0;
+    font-size: var(--text-titel);
+  }
+
+  .ansehen {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .stand {
+    margin: var(--abstand-2) 0 var(--abstand-5);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  code {
+    font-family: var(--schrift-zahl);
+    font-size: 0.9em;
+  }
+
+  .abschnitt {
+    margin: 0 0 var(--abstand-3);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--farbe-text-leise);
+  }
+
+  /* Der Löschbereich ist abgesetzt und nicht rot: Er ist keine Warnung, sondern eine
+     Entscheidung mit zwei Möglichkeiten — und die falsche davon ist das Löschen. */
+  .loeschen {
+    max-width: var(--breite-text);
+    margin-top: var(--abstand-5);
+    padding: var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche-leise);
+  }
+
+  .loeschen p {
+    margin: 0 0 var(--abstand-3);
+    font-size: var(--text-klein);
+    font-family: var(--schrift-ui);
+  }
+
+  button {
+    padding: var(--abstand-2) var(--abstand-4);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+    color: var(--farbe-akzent);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    cursor: pointer;
+    transition: background-color var(--uebergang);
+  }
+
+  button:hover {
+    background: var(--farbe-akzent-leise);
+  }
+
+  button[disabled] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  .fehler {
+    max-width: var(--breite-text);
+    margin: 0 0 var(--abstand-4);
+    padding: var(--abstand-3);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+</style>

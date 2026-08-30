@@ -1,0 +1,352 @@
+---
+/**
+ * Die Übersicht der Verwaltung — die Seite nach dem Anmelden.
+ *
+ * Sie beantwortet die eine Frage, die sich die Bücherei nach dem Speichern wirklich
+ * stellt: **Ist meine Änderung schon im Katalog angekommen?** Dafür stehen hier zwei
+ * Zahlen nebeneinander, die sonst niemand vergleicht — die aus dem Bestand, so wie er
+ * gerade im Repository liegt, und die aus dem letzten Build, also die des öffentlichen
+ * Katalogs. Sind sie gleich, ist alles draußen. Sind sie es nicht, läuft der Build noch.
+ *
+ * Bis Paket 5 stand hier nur die Zahl aus dem Build, weil die andere sieben Dateiabrufe
+ * gekostet hätte, für die es damals keinen zweiten Grund gab. Den gibt es jetzt: Dieselbe
+ * Leseanfrage macht auch die Warnung vor dem ablaufenden Zugriffstoken verlässlich — das
+ * Datum steht in einer Kopfzeile, die GitHub nur mitschickt, wenn man mit ihm spricht.
+ *
+ * Geht das Lesen schief, bleibt die Seite stehen und sagt, was los ist: Die Zahlen aus dem
+ * Build sind auch dann noch da, denn sie stecken im Bündel dieser Seite.
+ */
+import Grundgeruest from '../../layouts/Grundgeruest.astro';
+import { datenstand, gesamtAnzahl, spartenUebersicht } from '../../lib/daten';
+import { AblageFehler, holeAenderungen, tokenAblauf, type Aenderung } from '../../lib/github';
+import { liesBestandUndPapierkorb } from '../../lib/pflege';
+
+export const prerender = false;
+
+/** Die Zahlen aus dem Bestand — leer, solange nichts gelesen werden konnte. */
+let imBestand = new Map<string, number>();
+let imPapierkorb = 0;
+let fehler: string | null = null;
+
+try {
+  const { bestand, papierkorb } = await liesBestandUndPapierkorb();
+  imBestand = new Map([...bestand.dateien].map(([sparte, { datei }]) => [sparte, datei.items.length]));
+  imPapierkorb = papierkorb.datei.items.length;
+} catch (ausnahme) {
+  fehler =
+    ausnahme instanceof AblageFehler
+      ? ausnahme.message
+      : 'Der Bestand ließ sich gerade nicht lesen. Die Zahlen unten sind deshalb die des ' +
+        'letzten Builds. Bitte die Seite neu laden; wenn es wieder nicht geht, bei der ' +
+        'Person melden, die den Katalog betreut.';
+}
+
+/**
+ * Die letzten zehn Änderungen (plan.md § 4.4).
+ *
+ * In einem eigenen `try`: Das Protokoll ist die Zugabe, die Zahlen sind die Auskunft.
+ * Wenn die Historie einmal nicht zu haben ist, soll die Übersicht deshalb nicht die
+ * Fehlermeldung der Historie zeigen, sondern die Zahlen — und die Zeile darunter
+ * schlicht weglassen.
+ */
+let letzte: Aenderung[] = [];
+try {
+  letzte = await holeAenderungen(10);
+} catch (ausnahme) {
+  console.error('Änderungsliste für die Übersicht nicht lesbar:', ausnahme);
+}
+
+const zeitFormat = new Intl.DateTimeFormat('de-AT', {
+  day: '2-digit',
+  month: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  // Wie im Protokoll: Die Funktion läuft in UTC, die Bücherei nicht.
+  timeZone: 'Europe/Vienna',
+});
+
+/**
+ * Die Warnung vor dem ablaufenden Zugriffstoken (plan.md § 5).
+ *
+ * Erst **nach** dem Lesen abgefragt: Das Datum stammt aus einer Kopfzeile der letzten
+ * Antwort von GitHub, und die gibt es erst, seit oben gelesen wurde.
+ */
+const ablauf = tokenAblauf();
+const tokenWarnung = ablauf && ablauf.tageBis < 30 ? ablauf : null;
+
+const gesamtImBestand = [...imBestand.values()].reduce((summe, anzahl) => summe + anzahl, 0);
+const wartend = fehler ? 0 : gesamtImBestand - gesamtAnzahl;
+
+/** Eine Sparte wird gezeigt, wenn sie irgendwo Einträge hat — im Bestand oder im Katalog. */
+const zeilen = spartenUebersicht.map((eintrag) => ({
+  bezeichnung: eintrag.bezeichnung,
+  imKatalog: eintrag.anzahl,
+  jetzt: imBestand.get(eintrag.sparte),
+}));
+
+const gepflegt = zeilen.filter((zeile) => (zeile.jetzt ?? zeile.imKatalog) > 0);
+const leer = zeilen.filter((zeile) => (zeile.jetzt ?? zeile.imKatalog) === 0);
+
+const zahl = new Intl.NumberFormat('de-AT');
+const alsDatum = (iso: string): string => iso.split('-').reverse().join('.');
+---
+
+<Grundgeruest titel="Verwaltung" nichtIndexieren>
+  <div class="kopf">
+    <h1 class="ueberschrift">Verwaltung</h1>
+    <form method="post" action="/api/abmelden/">
+      <button type="submit">Abmelden</button>
+    </form>
+  </div>
+
+  <nav class="wege" aria-label="Bereiche">
+    <a class="knopf" href="/verwaltung/neu/">Neuer Titel</a>
+    <a class="knopf leise" href="/verwaltung/bestand/">Bestand durchsehen</a>
+    <a class="knopf leise" href="/verwaltung/papierkorb/">
+      Papierkorb{imPapierkorb > 0 && <> ({zahl.format(imPapierkorb)})</>}
+    </a>
+    <a class="knopf leise" href="/verwaltung/export/">Export</a>
+    <a class="knopf leise" href="/verwaltung/protokoll/">Protokoll</a>
+  </nav>
+
+  {fehler && <p class="warnung">{fehler}</p>}
+
+  {
+    tokenWarnung && (
+      <p class="warnung">
+        Das Zugriffstoken für GitHub läuft am {alsDatum(tokenWarnung.datum)} ab
+        {tokenWarnung.tageBis >= 0
+          ? ` — in ${tokenWarnung.tageBis} Tagen.`
+          : ' — es ist bereits abgelaufen.'}{' '}
+        Danach lässt sich nichts mehr speichern. Bitte bei der Person melden, die den
+        Katalog betreut; ein neues Token ist in fünf Minuten erzeugt.
+      </p>
+    )
+  }
+
+  <section aria-labelledby="bestand-titel">
+    <h2 id="bestand-titel" class="abschnitt">Bestand</h2>
+
+    <p class="stand">
+      {
+        fehler ? (
+          <>
+            {zahl.format(gesamtAnzahl)} Medien im Katalog, Stand des letzten Builds
+            {datenstand && <> vom {alsDatum(datenstand)}</>}.
+          </>
+        ) : wartend === 0 ? (
+          <>
+            {zahl.format(gesamtImBestand)} Medien. Der Katalog ist auf demselben Stand — es
+            wartet nichts auf Veröffentlichung.
+          </>
+        ) : (
+          <>
+            {zahl.format(gesamtImBestand)} Medien im Bestand, {zahl.format(gesamtAnzahl)} davon
+            im Katalog
+            {datenstand && <> (Stand vom {alsDatum(datenstand)})</>}.
+            {' '}
+            {wartend > 0
+              ? `${zahl.format(wartend)} ${wartend === 1 ? 'Änderung wartet' : 'Änderungen warten'} noch auf den nächsten Build.`
+              : 'Der Katalog wird gerade neu gebaut.'}{' '}
+            Das dauert ein bis zwei Minuten und läuft von selbst.
+          </>
+        )
+      }
+    </p>
+
+    <ul class="zahlen">
+      {
+        gepflegt.map((zeile) => (
+          <li>
+            <span class="sparte">{zeile.bezeichnung}</span>
+            <span class="anzahl">{zahl.format(zeile.jetzt ?? zeile.imKatalog)}</span>
+          </li>
+        ))
+      }
+    </ul>
+
+    {
+      leer.length > 0 && (
+        <p class="klein">
+          Noch ohne Einträge: {leer.map((zeile) => zeile.bezeichnung).join(', ')}.
+        </p>
+      )
+    }
+  </section>
+
+  {
+    letzte.length > 0 && (
+      <section aria-labelledby="aenderungen-titel">
+        <h2 id="aenderungen-titel" class="abschnitt">Zuletzt geändert</h2>
+
+        <ul class="aenderungen">
+          {letzte.map((aenderung) => (
+            <li>
+              <span class="wann">{zeitFormat.format(new Date(aenderung.wann))}</span>
+              <span class="was">{aenderung.meldung}</span>
+            </li>
+          ))}
+        </ul>
+
+        <p class="klein">
+          <a href="/verwaltung/protokoll/">Das ganze Protokoll ansehen</a>
+        </p>
+      </section>
+    )
+  }
+</Grundgeruest>
+
+<style>
+  .kopf {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--abstand-3);
+    margin-bottom: var(--abstand-4);
+  }
+
+  .ueberschrift {
+    margin: 0;
+    font-size: var(--text-titel);
+  }
+
+  button {
+    padding: var(--abstand-1) var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+    color: var(--farbe-text-leise);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    cursor: pointer;
+    transition:
+      color var(--uebergang),
+      border-color var(--uebergang);
+  }
+
+  button:hover {
+    color: var(--farbe-akzent);
+    border-color: var(--farbe-akzent);
+  }
+
+  .wege {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--abstand-2);
+    margin-bottom: var(--abstand-4);
+  }
+
+  .knopf {
+    padding: var(--abstand-1) var(--abstand-3);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-akzent);
+    color: var(--farbe-grund);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    text-decoration: none;
+  }
+
+  .knopf:hover {
+    background: var(--farbe-akzent-hell);
+    border-color: var(--farbe-akzent-hell);
+    color: var(--farbe-grund);
+  }
+
+  .knopf.leise {
+    background: var(--farbe-flaeche);
+    border-color: var(--farbe-rand-kraeftig);
+    color: var(--farbe-text-leise);
+  }
+
+  .knopf.leise:hover {
+    color: var(--farbe-akzent);
+    border-color: var(--farbe-akzent);
+  }
+
+  .abschnitt {
+    margin: var(--abstand-5) 0 var(--abstand-3);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--farbe-text-leise);
+  }
+
+  .warnung {
+    max-width: var(--breite-text);
+    margin: 0 0 var(--abstand-4);
+    padding: var(--abstand-3);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .stand {
+    margin: 0 0 var(--abstand-3);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .zahlen {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-width: var(--breite-text);
+  }
+
+  .zahlen li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--abstand-3);
+    padding: var(--abstand-2) 0;
+    border-bottom: 1px solid var(--farbe-rand);
+  }
+
+  .anzahl {
+    font-family: var(--schrift-zahl);
+    font-variant-numeric: tabular-nums;
+    color: var(--farbe-text-leise);
+  }
+
+  .klein {
+    margin-top: var(--abstand-3);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .aenderungen {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-width: var(--breite-text);
+  }
+
+  .aenderungen li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--abstand-1) var(--abstand-3);
+    padding: var(--abstand-2) 0;
+    border-bottom: 1px solid var(--farbe-rand);
+    font-size: var(--text-klein);
+  }
+
+  .wann {
+    font-family: var(--schrift-zahl);
+    font-variant-numeric: tabular-nums;
+    color: var(--farbe-text-leise);
+    white-space: nowrap;
+  }
+
+  .was {
+    flex: 1 1 16rem;
+    overflow-wrap: break-word;
+  }
+</style>

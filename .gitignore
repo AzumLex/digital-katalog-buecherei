@@ -1,5 +1,8 @@
 # Build-Ergebnisse
 dist/
+# Der Serverteil des Builds. Liegt neben dist/ und nicht darin, damit der Adapter
+# ihn nicht in das öffentlich ausgelieferte Verzeichnis kopiert (astro.config.mjs).
+dist-server/
 .astro/
 .output/
 .vercel/
@@ -15,9 +18,11 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Umgebungsvariablen
+# Muster mit Stern: Die Datei für die lokale Arbeit heißt .env.local, ohne
+# zweiten Punkt — .env.*.local hat sie nicht erfasst.
 .env
 .env.production
-.env.*.local
+.env*.local
 
 # Python
 __pycache__/

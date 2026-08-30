@@ -17,53 +17,31 @@
  * `scripts/validate.py` bleibt für die lokale Arbeit erhalten und prüft dasselbe.
  * Die GitHub Action lässt beide laufen — wenn sie je auseinanderlaufen, fällt es
  * dort auf und nicht erst im Bestand.
+ *
+ * Punkt 1 steckt nicht mehr in diesem Skript, sondern in `src/lib/pruefung.ts`:
+ * Dieselbe Funktion prüft später einen einzelnen Eintrag, bevor die Verwaltung ihn
+ * ins Repository schreibt. Eine Prüfung, zwei Aufrufer — damit kann gar nicht erst
+ * entstehen, was der Absatz darüber für validate.py befürchtet. Punkt 2 und 3 bleiben
+ * hier: Sie gelten für eine ganze Datei, nicht für einen einzelnen Eintrag.
+ *
+ * Das Skript lädt mit `pruefung.ts` erstmals ein TypeScript-Modul und wird deshalb in
+ * `package.json` mit `--experimental-strip-types` gestartet. Node kann das ab 22.18
+ * von allein; die Flagge deckt die älteren 22er mit ab, die auf einem Deploy-Server
+ * stehen können, und `--disable-warning=ExperimentalWarning` sorgt dafür, dass die
+ * Ausgabe dabei auf jeder Node-Fassung dieselbe bleibt.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Ajv2020 from 'ajv/dist/2020.js';
+import { pruefeMedium } from '../src/lib/pruefung.ts';
 
 /** Ab so vielen Fehlern wird die Ausgabe abgeschnitten — sonst scrollt sie weg. */
 const MAX_MELDUNGEN = 25;
 
-// Dieses Skript liegt in scripts/, die Daten und das Schema liegen darüber.
+// Dieses Skript liegt in scripts/, die Daten liegen darüber. Das Schema muss hier
+// nicht mehr gesucht werden; pruefung.ts bringt es mit.
 const wurzel = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const schemaPfad = join(wurzel, 'schema', 'medium.schema.json');
 const datenOrdner = join(wurzel, 'src', 'data');
-
-const schema = JSON.parse(readFileSync(schemaPfad, 'utf8'));
-
-/**
- * `strict: false` und keine Formatprüfung — damit prüft ajv genau das, was auch
- * `jsonschema` in validate.py prüft. Python wertet `"format": "date"` ohne eigens
- * gesetzten FormatChecker nicht aus; würde ajv es hier tun, meldeten die beiden
- * Prüfungen bei denselben Daten Unterschiedliches.
- */
-const ajv = new Ajv2020({
-  allErrors: true,
-  strict: false,
-  validateFormats: false,
-});
-
-const pruefe = ajv.compile(schema);
-
-/**
- * Macht aus einer ajv-Fehlerangabe eine lesbare Zeile.
- *
- * `instancePath` ist ein JSON-Pointer (`/genres/0`); daraus wird die Punktschreibweise
- * aus validate.py (`genres.0`). Bei Fehlern am Eintrag selbst — fehlendes Pflichtfeld,
- * unbekanntes Feld — ist der Pfad leer und entfällt.
- */
-function beschreibeFehler(fehler) {
-  const stelle = fehler.instancePath.split('/').filter(Boolean).join('.');
-
-  const text =
-    fehler.keyword === 'additionalProperties'
-      ? `unbekanntes Feld „${fehler.params.additionalProperty}“`
-      : (fehler.message ?? 'ungültig');
-
-  return stelle ? `${stelle} ${text}` : text;
-}
 
 const dateien = readdirSync(datenOrdner)
   .filter((name) => name.endsWith('.json'))
@@ -94,9 +72,10 @@ for (const name of dateien) {
   items.forEach((eintrag, index) => {
     ids.set(eintrag.id, (ids.get(eintrag.id) ?? 0) + 1);
 
-    if (!pruefe(eintrag)) {
-      for (const fehler of pruefe.errors ?? []) {
-        melde(`${name}[${index}] ${eintrag.id}: ${beschreibeFehler(fehler)}`);
+    const ergebnis = pruefeMedium(eintrag);
+    if (!ergebnis.gueltig) {
+      for (const zeile of ergebnis.fehler) {
+        melde(`${name}[${index}] ${eintrag.id}: ${zeile}`);
       }
     }
   });

@@ -1,0 +1,424 @@
+---
+/**
+ * Das Formular für einen Eintrag — für „Neu“ und „Bearbeiten“ dasselbe.
+ *
+ * Es zeichnet nur, was `src/lib/formular.ts` beschreibt: Welche Felder es gibt, wie sie
+ * heißen, was sie annehmen und in welchen Abschnitt sie gehören, steht dort und kommt
+ * von dort aus dem Schema. Hier steht ausschließlich, wie ein Feld aussieht.
+ *
+ * **Zwei Dinge macht die Seite und nicht dieses Formular:** die Überschrift und den
+ * Löschbereich. Das Formular kennt keinen Unterschied zwischen den beiden Seiten außer
+ * dem, den die Daten machen — ein Eintrag ist da oder nicht.
+ *
+ * **Ohne JavaScript geht es hier nicht**, und das ist die einzige Stelle im Projekt, für
+ * die das gilt. Gespeichert wird über `PUT`/`DELETE` an `/api/medien/`, und beides kann
+ * ein HTML-Formular nicht. Der Katalog selbst bleibt davon unberührt: Er ist statisch und
+ * kommt ohne ein einziges Skript aus, die Suche ausgenommen.
+ */
+import {
+  FELDER,
+  GRUPPEN,
+  felderDerGruppe,
+  mitgefuehrteFelder,
+  passt,
+  zuFormularwert,
+  type Feld,
+} from '../lib/formular';
+import { heutigesDatum } from '../lib/bestand';
+import { statusText } from '../lib/anzeige';
+import { spartenUebersicht, type Medium, type MedienStatus } from '../lib/daten';
+
+interface Props {
+  /** Der zu bearbeitende Eintrag; fehlt er, ist es ein neuer. */
+  medium?: Medium;
+  /** Die Fassung der Datei, aus der der Eintrag stammt — der Schutz aus plan.md § 5. */
+  fassung?: string;
+}
+
+const { medium, fassung } = Astro.props;
+const bearbeiten = medium !== undefined;
+
+/**
+ * Der Ausgangswert jedes Feldes.
+ *
+ * Beim Bearbeiten der gespeicherte Wert, bei „Neu“ die Vorgabe aus dem Schema
+ * (`bestand: 1`, `status: verfuegbar`, `sprache: de`). Einzige Ausnahme ist `erfasst_am`:
+ * Das heutige Datum kann im Schema nicht stehen, es ist an jedem Tag ein anderes — und es
+ * vorzubelegen ist eine ausdrückliche Festlegung aus plan.md § 4.4.
+ */
+const roh = (medium ?? {}) as unknown as Record<string, unknown>;
+const werte: Record<string, string> = {};
+for (const feld of FELDER) {
+  werte[feld.name] = medium ? zuFormularwert(roh[feld.name]) : (feld.vorgabe ?? '');
+
+  // Ein Pflicht-Auswahlfeld ohne Wert gibt es nicht: Der Browser stellt in einem
+  // `<select>` ohne leere Wahl immer den ersten Eintrag ein. Stünde hier trotzdem
+  // „nichts gewählt“, wäre das eine zweite Wahrheit — die Felder würden nach einer
+  // Sparte ein- und ausgeblendet, die auf dem Bildschirm gar nicht dasteht.
+  if (werte[feld.name] === '' && feld.pflicht && feld.auswahl?.length) {
+    werte[feld.name] = feld.auswahl[0];
+  }
+}
+if (!bearbeiten) werte.erfasst_am = heutigesDatum();
+
+/** Die Felder, die das Formular nicht anzeigt, aber unverändert zurückgeben muss. */
+const mitgefuehrt = medium ? mitgefuehrteFelder(medium) : {};
+
+/** Die Bezeichnungen der Sparten — dieselben, die im Katalog über den Listen stehen. */
+const spartenNamen = new Map(spartenUebersicht.map((e) => [e.sparte as string, e.bezeichnung]));
+
+/**
+ * Der lesbare Text eines Auswahlwertes.
+ *
+ * Nur zwei Felder brauchen ihn: Die Sparte heißt in den Daten `kinder-sachbuecher` und im
+ * Katalog „Kinder-Sachbücher“, der Status heißt `verfuegbar` und ausgeschrieben
+ * „verfügbar“. Beide Übersetzungen gibt es schon — die eine in den Daten selbst, die
+ * andere in `anzeige.ts`. Medienform und Einband stehen im Schema bereits als deutsche
+ * Wörter da.
+ */
+function auswahltext(feld: Feld, wert: string): string {
+  if (feld.name === 'sparte') return spartenNamen.get(wert) ?? wert;
+  if (feld.name === 'status') return statusText(wert as MedienStatus);
+  return wert;
+}
+
+/**
+ * Ist das Feld beim Aufbau der Seite sichtbar?
+ *
+ * Zwei Gründe für „ja“: Es passt zur gewählten Sparte oder Medienform — oder es steht
+ * schon etwas darin. Der zweite Grund ist der wichtigere: Ein Feld auszublenden, in dem
+ * eine Angabe steht, würde diese Angabe beim nächsten Speichern verlieren. Was verborgen
+ * ist, wird nicht mitgeschickt.
+ */
+function sichtbar(feld: Feld): boolean {
+  return werte[feld.name] !== '' || passt(feld, werte.sparte, werte.medium);
+}
+
+/**
+ * Welches Eingabefeld ein Feld bekommt.
+ *
+ * `zahl` bekommt ein Zahlenfeld, `kommazahl` nicht: Ein Preis wird hierzulande mit Komma
+ * eingetippt, und ein Zahlenfeld lehnt das je nach Browser und Spracheinstellung ab —
+ * die Eingabe wäre dann leer, ohne dass jemand sagt, warum. `inputmode` sorgt trotzdem
+ * für die Zifferntastatur am Handy, und das Komma rechnet `ausFormularwerten` um.
+ */
+function eingabetyp(feld: Feld): 'number' | 'date' | 'text' {
+  if (feld.art === 'zahl') return 'number';
+  if (feld.art === 'datum') return 'date';
+  return 'text';
+}
+
+/**
+ * Die Kennung ist beim Bearbeiten gesperrt (plan.md § 4.4).
+ *
+ * `readonly` und nicht `disabled`: Ein schreibgeschütztes Feld wird vorgelesen, lässt
+ * sich anspringen und kopieren — ein abgeschaltetes nicht. Dass die Sperre auch dann
+ * hält, wenn jemand sie im Browser aushebelt, stellt `aendere` in `pflege.ts` sicher.
+ */
+function gesperrt(feld: Feld): boolean {
+  return bearbeiten && feld.name === 'id';
+}
+---
+
+<form
+  id="medienformular"
+  data-modus={bearbeiten ? 'bearbeiten' : 'neu'}
+  data-id={medium?.id ?? ''}
+  data-fassung={fassung ?? ''}
+  data-sparte={medium?.sparte ?? ''}
+>
+  {/*
+    Die Meldung nach dem Speichern — leer, bis es etwas zu sagen gibt. Sie steht als
+    `aria-live`-Bereich hier oben und nicht neben dem Knopf: Wer mit der Tastatur
+    arbeitet oder vorlesen lässt, bekommt sie sonst nicht mit.
+  */}
+  <div id="meldung" class="meldung" role="status" aria-live="polite"></div>
+
+  <label class="alleFelder">
+    <input type="checkbox" id="alle-felder" />
+    Auch Felder anzeigen, die zu dieser Sparte nicht passen
+  </label>
+
+  {
+    GRUPPEN.map((gruppe) => (
+      <fieldset class="gruppe">
+        <legend>{gruppe.titel}</legend>
+        <p class="erklaerung">{gruppe.erklaerung}</p>
+
+        {felderDerGruppe(gruppe.name).map((feld) => (
+          <div class="feld" data-feld={feld.name} hidden={!sichtbar(feld)}>
+            <label for={`feld-${feld.name}`}>
+              {feld.beschriftung}
+              {feld.pflicht && <span class="pflicht"> (Pflicht)</span>}
+            </label>
+
+            {feld.art === 'auswahl' ? (
+              <select
+                id={`feld-${feld.name}`}
+                name={feld.name}
+                required={feld.pflicht}
+                aria-describedby={feld.hilfe ? `hilfe-${feld.name}` : undefined}
+              >
+                {/*
+                  Die leere Wahl gibt es nur bei freiwilligen Feldern. „Bitte wählen“ ist
+                  dort kein Wert, sondern die Aussage „keine Angabe“ — und die ist erlaubt.
+                */}
+                {!feld.pflicht && <option value="">— keine Angabe —</option>}
+                {feld.auswahl?.map((wert) => (
+                  <option value={wert} selected={werte[feld.name] === wert}>
+                    {auswahltext(feld, wert)}
+                  </option>
+                ))}
+              </select>
+            ) : feld.art === 'mehrzeilig' ? (
+              <textarea
+                id={`feld-${feld.name}`}
+                name={feld.name}
+                rows="3"
+                aria-describedby={feld.hilfe ? `hilfe-${feld.name}` : undefined}
+              >
+                {werte[feld.name]}
+              </textarea>
+            ) : (
+              <input
+                id={`feld-${feld.name}`}
+                name={feld.name}
+                value={werte[feld.name]}
+                required={feld.pflicht}
+                pattern={feld.muster}
+                min={feld.min}
+                max={feld.max}
+                type={eingabetyp(feld)}
+                inputmode={feld.art === 'kommazahl' ? 'decimal' : undefined}
+                step={feld.art === 'zahl' ? '1' : undefined}
+                readonly={gesperrt(feld)}
+                aria-describedby={feld.hilfe ? `hilfe-${feld.name}` : undefined}
+              />
+            )}
+
+            {feld.hilfe && (
+              <p class="hilfe" id={`hilfe-${feld.name}`}>
+                {feld.hilfe}
+                {bearbeiten && feld.name === 'id' && (
+                  <> Sie lässt sich nicht ändern — an ihr hängt die Adresse der Katalogseite.</>
+                )}
+              </p>
+            )}
+          </div>
+        ))}
+      </fieldset>
+    ))
+  }
+
+  {/*
+    Die Felder, die das Formular nicht anbietet — `_quelle`, `_pruefen`, `cover_url` —
+    reisen hier mit und kommen beim Speichern unverändert zurück. Als JSON-Block und nicht
+    als versteckte Eingabefelder, weil `_pruefen` eine Liste ist; `type="application/json"`
+    wird von keinem Browser ausgeführt.
+  */}
+  <script
+    id="mitgefuehrt"
+    type="application/json"
+    is:inline
+    set:html={JSON.stringify(mitgefuehrt)}
+  ></script>
+
+  <div class="knopfreihe">
+    <button type="submit" class="haupt">Speichern</button>
+    <a class="abbruch" href="/verwaltung/bestand/">Abbrechen</a>
+  </div>
+
+  <noscript>
+    <p class="hinweis">
+      Zum Speichern muss JavaScript eingeschaltet sein. Der Katalog selbst kommt ohne aus,
+      dieses Formular nicht. Bitte bei der Person melden, die den Katalog betreut.
+    </p>
+  </noscript>
+</form>
+
+<script>
+  import { starteFormular } from '../scripts/verwaltungsformular';
+  starteFormular();
+</script>
+
+<style>
+  form {
+    max-width: var(--breite-text);
+  }
+
+  .gruppe {
+    margin: 0 0 var(--abstand-5);
+    padding: var(--abstand-3) var(--abstand-3) var(--abstand-1);
+    border: 1px solid var(--farbe-rand);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+  }
+
+  legend {
+    padding: 0 var(--abstand-2);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--farbe-text-leise);
+  }
+
+  .erklaerung {
+    margin: 0 0 var(--abstand-4);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .feld {
+    margin-bottom: var(--abstand-4);
+  }
+
+  /* Ausgeblendete Felder sind wirklich weg — `hidden` allein reicht bei `display: flex`
+     nicht, und die Felder liegen in einem Fluss, der sie sonst weiter mitzählt. */
+  .feld[hidden] {
+    display: none;
+  }
+
+  label {
+    display: block;
+    margin-bottom: var(--abstand-1);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text);
+  }
+
+  .pflicht {
+    color: var(--farbe-text-leise);
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    padding: var(--abstand-2) var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+    color: var(--farbe-text);
+    font: inherit;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  input[readonly] {
+    background: var(--farbe-flaeche-leise);
+    color: var(--farbe-text-leise);
+  }
+
+  .hilfe {
+    margin: var(--abstand-1) 0 0;
+    font-family: var(--schrift-ui);
+    font-size: var(--text-winzig);
+    line-height: var(--zeilenhoehe-eng);
+    color: var(--farbe-text-leise);
+  }
+
+  /* Der Hinweis auf eine schon vergebene Kennung. Er entsteht erst im Browser
+     (`verwaltungsformular.ts`), deshalb steht hier nur, wie er aussieht — und deshalb
+     `:global`, sonst bekäme ein Element, das Astro nie gesehen hat, keine Auszeichnung. */
+  .feld :global(.kennungshinweis) {
+    margin: var(--abstand-2) 0 0;
+    padding: var(--abstand-2) var(--abstand-3);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-winzig);
+    line-height: var(--zeilenhoehe-eng);
+  }
+
+  .alleFelder {
+    display: flex;
+    align-items: center;
+    gap: var(--abstand-2);
+    margin-bottom: var(--abstand-4);
+    color: var(--farbe-text-leise);
+  }
+
+  .alleFelder input {
+    width: auto;
+  }
+
+  .knopfreihe {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--abstand-3);
+    margin-bottom: var(--abstand-5);
+  }
+
+  button.haupt {
+    padding: var(--abstand-2) var(--abstand-5);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-akzent);
+    color: var(--farbe-grund);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-normal);
+    cursor: pointer;
+    transition: background-color var(--uebergang);
+  }
+
+  button.haupt:hover {
+    background: var(--farbe-akzent-hell);
+    border-color: var(--farbe-akzent-hell);
+  }
+
+  button.haupt[disabled] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  .abbruch {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  /* Leer und damit unsichtbar, bis das Skript etwas hineinschreibt. */
+  .meldung:empty {
+    display: none;
+  }
+
+  .meldung {
+    max-width: var(--breite-text);
+    margin: 0 0 var(--abstand-4);
+    padding: var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche-leise);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .meldung :global(ul) {
+    margin: var(--abstand-2) 0 0;
+    padding-left: var(--abstand-3);
+  }
+
+  .meldung :global(p) {
+    margin: 0;
+  }
+
+  .meldung.schlecht {
+    border-color: var(--farbe-akzent);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+  }
+
+  .hinweis {
+    margin: 0;
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-akzent);
+  }
+</style>

@@ -10,13 +10,34 @@ import type { Sparte } from '../lib/daten';
 import { spartenPfad } from '../lib/pfade';
 import type { Seite, Sortierung } from '../lib/sortierung';
 
+/**
+ * Zwei Aufrufer, eine Blätterung.
+ *
+ * Der Katalog blättert durch fertig gebaute Sparten-Seiten und übergibt dafür Sparte und
+ * Sortierung; die Bestandsliste der Verwaltung blättert durch eine Adresse mit Suchbegriff
+ * und Filter und übergibt stattdessen `adresse` — eine Funktion, die zu einer Seitenzahl
+ * die passende Adresse baut. Eine zweite Blätterung für die Verwaltung wäre dieselbe
+ * Auslassungslogik ein zweites Mal, und die Tastaturbedienung und die
+ * `aria`-Auszeichnungen gleich mit.
+ */
 interface Props {
-  sparte: Sparte;
-  sortierung: Sortierung;
   seite: Seite<unknown>;
+  sparte?: Sparte;
+  sortierung?: Sortierung;
+  /** Die Adresse einer Seitenzahl. Ohne Angabe die Spartenliste des Katalogs. */
+  adresse?: (nummer: number) => string;
 }
 
-const { sparte, sortierung, seite } = Astro.props;
+const { sparte, sortierung, seite, adresse } = Astro.props;
+
+/**
+ * Wohin ein Seitenlink zeigt.
+ *
+ * `spartenPfad` bleibt die Voreinstellung, damit alle bestehenden Aufrufe unverändert
+ * gültig sind — im Katalog steht an jeder Listenseite nur `sparte` und `sortierung`.
+ */
+const zurSeite = (nummer: number): string =>
+  adresse ? adresse(nummer) : spartenPfad(sparte!, sortierung, nummer);
 
 /**
  * Seitenzahlen mit Auslassungen: erste, letzte, die aktuelle und je eine daneben.
@@ -46,7 +67,7 @@ const hatNaechste = seite.nummer < seite.anzahlSeiten;
     <nav class="blaetterung" aria-label="Seiten">
       <a
         class:list={['pfeil', { gesperrt: !hatVorherige }]}
-        href={hatVorherige ? spartenPfad(sparte, sortierung, seite.nummer - 1) : undefined}
+        href={hatVorherige ? zurSeite(seite.nummer - 1) : undefined}
         aria-disabled={hatVorherige ? undefined : 'true'}
         rel="prev"
       >
@@ -63,7 +84,7 @@ const hatNaechste = seite.nummer < seite.anzahlSeiten;
             <li>
               <a
                 class:list={['nummer', { aktiv: eintrag === seite.nummer }]}
-                href={spartenPfad(sparte, sortierung, eintrag)}
+                href={zurSeite(eintrag)}
                 aria-current={eintrag === seite.nummer ? 'page' : undefined}
               >
                 <span class="nur-vorlesen">Seite </span>
@@ -76,7 +97,7 @@ const hatNaechste = seite.nummer < seite.anzahlSeiten;
 
       <a
         class:list={['pfeil', { gesperrt: !hatNaechste }]}
-        href={hatNaechste ? spartenPfad(sparte, sortierung, seite.nummer + 1) : undefined}
+        href={hatNaechste ? zurSeite(seite.nummer + 1) : undefined}
         aria-disabled={hatNaechste ? undefined : 'true'}
         rel="next"
       >

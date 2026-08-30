@@ -1,0 +1,262 @@
+---
+/**
+ * „Protokoll“ — was zuletzt am Bestand geändert wurde.
+ *
+ * Die Liste kommt aus der Historie des Repositories und nicht aus einer eigenen Datei
+ * (plan.md § 4.7). Ein selbstgebautes Protokoll wäre eine zweite Wahrheit: Es müsste bei
+ * jedem Speichern mitgeschrieben werden, würde beim ersten Fehlschlag lückenhaft und
+ * ließe sich nachträglich ändern. Die Historie kann das alles nicht — sie steht ohnehin
+ * da, sie ist vollständig, und zu jedem Eintrag gibt es die Ansicht mit Vorher und
+ * Nachher.
+ *
+ * Aufbereitet heißt hier: nach Tagen gruppiert, mit Uhrzeit in unserer Zeitzone und ohne
+ * die Kennungen, die niemand liest. Wer mehr wissen will, klickt auf „Ansehen“ und ist
+ * bei GitHub.
+ */
+import Grundgeruest from '../../layouts/Grundgeruest.astro';
+import { AblageFehler, holeAenderungen, type Aenderung } from '../../lib/github';
+
+export const prerender = false;
+
+/** So viele Änderungen zeigt die Seite. Mehr davon liest niemand am Bildschirm. */
+const ANZAHL = 50;
+
+let aenderungen: Aenderung[] = [];
+let fehler: string | null = null;
+
+try {
+  aenderungen = await holeAenderungen(ANZAHL);
+} catch (ausnahme) {
+  fehler =
+    ausnahme instanceof AblageFehler
+      ? ausnahme.message
+      : 'Das Protokoll ließ sich gerade nicht lesen. Bitte die Seite neu laden; wenn es ' +
+        'wieder nicht geht, bei der Person melden, die den Katalog betreut.';
+}
+
+/**
+ * Datum und Uhrzeit in der Zeitzone der Bücherei.
+ *
+ * Ausdrücklich `Europe/Vienna` und nicht die Zeitzone des Rechners: Die Serverfunktion
+ * läuft auf Vercel in UTC, und im Sommer stünde neben einer Änderung von 20:30 Uhr eine
+ * 18:30. Das sieht nicht falsch aus — und genau deshalb wäre es schlimm.
+ */
+const ZEITZONE = 'Europe/Vienna';
+const tagFormat = new Intl.DateTimeFormat('de-AT', {
+  weekday: 'long',
+  day: '2-digit',
+  month: 'long',
+  year: 'numeric',
+  timeZone: ZEITZONE,
+});
+const uhrzeitFormat = new Intl.DateTimeFormat('de-AT', {
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: ZEITZONE,
+});
+
+/** Der Tagesschlüssel, nach dem gruppiert wird — in derselben Zeitzone wie die Anzeige. */
+const tagSchluesselFormat = new Intl.DateTimeFormat('sv-SE', { timeZone: ZEITZONE });
+
+interface Tagesblock {
+  tag: string;
+  ueberschrift: string;
+  eintraege: Array<Aenderung & { uhrzeit: string }>;
+}
+
+/**
+ * Fasst die Änderungen zu Tagen zusammen.
+ *
+ * Die Reihenfolge bleibt, wie sie kommt — die Historie liefert die neueste zuerst, und
+ * das ist auch die Reihenfolge, in der jemand danach sucht.
+ */
+const tage: Tagesblock[] = [];
+for (const aenderung of aenderungen) {
+  const zeitpunkt = new Date(aenderung.wann);
+  if (Number.isNaN(zeitpunkt.getTime())) continue;
+
+  const tag = tagSchluesselFormat.format(zeitpunkt);
+  let block = tage.at(-1);
+
+  if (!block || block.tag !== tag) {
+    block = { tag, ueberschrift: tagFormat.format(zeitpunkt), eintraege: [] };
+    tage.push(block);
+  }
+
+  block.eintraege.push({ ...aenderung, uhrzeit: uhrzeitFormat.format(zeitpunkt) });
+}
+
+/** Die Adresse des Repositories — abgeleitet aus einem Verweis, ohne neue Auskunft. */
+const historie = aenderungen[0]?.adresse.split('/commit/')[0];
+---
+
+<Grundgeruest titel="Protokoll · Verwaltung" nichtIndexieren>
+  <nav class="brotkrumen" aria-label="Pfad">
+    <a href="/verwaltung/">Verwaltung</a> <span aria-hidden="true">›</span> Protokoll
+  </nav>
+
+  <h1 class="ueberschrift">Protokoll</h1>
+
+  {fehler && <p class="fehler">{fehler}</p>}
+
+  <p class="anleitung">
+    Jede Änderung am Bestand steht hier — wer sie gemacht hat, wann, und was sie betraf.
+    Nichts davon lässt sich nachträglich ändern oder löschen. Ein Klick auf „Ansehen“ zeigt
+    die Änderung im Einzelnen: was vorher dastand und was jetzt dasteht.
+  </p>
+
+  {
+    !fehler && aenderungen.length === 0 && (
+      <p class="leer">Am Bestand wurde noch nichts geändert.</p>
+    )
+  }
+
+  {
+    tage.map((block) => (
+      <section class="tag" aria-label={block.ueberschrift}>
+        <h2 class="tagestitel">{block.ueberschrift}</h2>
+
+        <ul class="eintraege">
+          {block.eintraege.map((eintrag) => (
+            <li>
+              <span class="uhrzeit">{eintrag.uhrzeit}</span>
+              <span class="meldung">{eintrag.meldung}</span>
+              <span class="wer">{eintrag.wer}</span>
+              <a class="ansehen" href={eintrag.adresse} target="_blank" rel="noopener noreferrer">
+                Ansehen
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
+
+  {
+    historie && (
+      <p class="klein">
+        Es werden die letzten {ANZAHL} Änderungen gezeigt.{' '}
+        <a href={`${historie}/commits/`} target="_blank" rel="noopener noreferrer">
+          Die vollständige Historie liegt bei GitHub.
+        </a>
+      </p>
+    )
+  }
+
+  <p class="klein">
+    <a href="/verwaltung/">Zurück zur Übersicht</a>
+  </p>
+</Grundgeruest>
+
+<style>
+  .brotkrumen {
+    margin-bottom: var(--abstand-3);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .ueberschrift {
+    margin: 0 0 var(--abstand-4);
+    font-size: var(--text-titel);
+  }
+
+  .anleitung {
+    max-width: var(--breite-text);
+    margin-bottom: var(--abstand-5);
+  }
+
+  .tagestitel {
+    margin: var(--abstand-5) 0 var(--abstand-2);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--farbe-text-leise);
+  }
+
+  .eintraege {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-width: var(--breite-text);
+  }
+
+  .eintraege li {
+    display: grid;
+    /* Uhrzeit und Verweis so breit, wie sie sein müssen; die Meldung nimmt den Rest.
+       Auf schmalen Geräten fällt alles untereinander — siehe unten. */
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: var(--abstand-1) var(--abstand-3);
+    padding: var(--abstand-2) 0;
+    border-bottom: 1px solid var(--farbe-rand);
+  }
+
+  .uhrzeit {
+    font-family: var(--schrift-zahl);
+    font-size: var(--text-klein);
+    font-variant-numeric: tabular-nums;
+    color: var(--farbe-text-leise);
+    white-space: nowrap;
+  }
+
+  .meldung {
+    /* Lange Titel in einer Commit-Meldung dürfen umbrechen, aber nicht aus dem Raster
+       laufen — dieselbe Vorsorge wie bei den Überschriften in global.css. */
+    overflow-wrap: break-word;
+  }
+
+  .wer {
+    grid-column: 2;
+    font-family: var(--schrift-ui);
+    font-size: var(--text-winzig);
+    color: var(--farbe-text-leise);
+  }
+
+  .ansehen {
+    grid-row: 1;
+    grid-column: 3;
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 30rem) {
+    .eintraege li {
+      grid-template-columns: 1fr auto;
+    }
+
+    .meldung {
+      grid-column: 1 / -1;
+    }
+
+    .wer {
+      grid-column: 1;
+    }
+  }
+
+  .leer,
+  .klein {
+    max-width: var(--breite-text);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .klein {
+    margin-top: var(--abstand-4);
+  }
+
+  .fehler {
+    max-width: var(--breite-text);
+    margin: 0 0 var(--abstand-4);
+    padding: var(--abstand-3);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+</style>

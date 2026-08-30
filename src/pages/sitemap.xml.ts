@@ -10,6 +10,11 @@
  * Bewusst als eine Datei und von Hand gebaut statt über eine Integration: Bei gut
  * tausend Adressen ist das weit unter dem Limit von 50 000, und so steht genau das
  * drin, was drinstehen soll — unter dem Namen, den man erwartet.
+ *
+ * `/verwaltung/` und `/api/` können hier gar nicht hineingeraten: `sammleAdressen()`
+ * zählt auf, was aufgenommen wird, statt zu durchsuchen und auszuschließen. Eine
+ * Integration, die alle erzeugten Seiten einsammelt, hätte die Verwaltung beim ersten
+ * Build mit aufgeführt — und niemandem wäre es aufgefallen.
  */
 import type { APIRoute } from 'astro';
 import { SPARTEN, alleMedien, medienDerSparte } from '../lib/daten';

@@ -1,0 +1,224 @@
+---
+/**
+ * „Export“ — den Bestand als Datei mitnehmen.
+ *
+ * Die Seite selbst holt keine Daten: Sie ist ein Formular, das eine Adresse zusammenbaut
+ * (`/api/export/`), und der Download läuft von dort. Deshalb steht sie sofort da, auch
+ * wenn der Bestand gerade eine Sekunde bräuchte — und deshalb braucht sie **kein
+ * JavaScript**.
+ *
+ * Die beiden Handgriffe für Excel stehen ausdrücklich hier und nicht in einer
+ * Dokumentation: Sie sind der Preis der Entscheidung aus plan.md § 9 (b), CSV statt einer
+ * zweiten Abhängigkeit zu nehmen. Wer sie einmal gelesen hat, braucht sie nie wieder —
+ * aber er soll sie dort finden, wo er die Datei holt.
+ */
+import Grundgeruest from '../../layouts/Grundgeruest.astro';
+import { SPARTEN, spartenUebersicht } from '../../lib/daten';
+import { ALLE } from '../../lib/export';
+
+export const prerender = false;
+
+const gescheitert = Astro.url.searchParams.has('fehler');
+const spartenNamen = new Map(spartenUebersicht.map((e) => [e.sparte as string, e.bezeichnung]));
+---
+
+<Grundgeruest titel="Export · Verwaltung" nichtIndexieren>
+  <nav class="brotkrumen" aria-label="Pfad">
+    <a href="/verwaltung/">Verwaltung</a> <span aria-hidden="true">›</span> Export
+  </nav>
+
+  <h1 class="ueberschrift">Export</h1>
+
+  {
+    gescheitert && (
+      <p class="fehler">
+        Der Bestand ließ sich gerade nicht lesen, deshalb kam keine Datei zustande. Bitte
+        noch einmal versuchen; wenn es wieder nicht geht, bei der Person melden, die den
+        Katalog betreut.
+      </p>
+    )
+  }
+
+  <p class="anleitung">
+    Hier bekommen Sie den Bestand als Datei — zum Ausdrucken, zum Durchsehen am Tisch oder
+    als Sicherung. Der Katalog ändert sich dadurch nicht.
+  </p>
+
+  <form class="auswahl" method="get" action="/api/export/">
+    <div class="feld">
+      <label for="sparte">Welche Sparte?</label>
+      <select id="sparte" name="sparte">
+        <option value={ALLE}>Alle Sparten zusammen</option>
+        {
+          SPARTEN.map((name) => (
+            <option value={name}>{spartenNamen.get(name) ?? name}</option>
+          ))
+        }
+      </select>
+    </div>
+
+    <div class="feld">
+      <label for="format">Welches Format?</label>
+      <select id="format" name="format">
+        <option value="csv">Excel (CSV) — für den täglichen Gebrauch</option>
+        <option value="json">JSON — für den späteren Umzug in ein Bibliotheksprogramm</option>
+      </select>
+    </div>
+
+    <button type="submit">Herunterladen</button>
+  </form>
+
+  <section aria-labelledby="excel-titel">
+    <h2 id="excel-titel" class="abschnitt">Die Excel-Datei</h2>
+
+    <p>
+      Doppelklick genügt — Excel öffnet die Datei ohne Nachfrage, mit richtigen Umlauten.
+      Zwei Handgriffe lohnen sich beim ersten Öffnen, danach liest sich die Tabelle besser:
+    </p>
+
+    <ol>
+      <li>
+        <strong>Kopfzeile festhalten:</strong> <em>Ansicht → Fenster fixieren → Oberste Zeile
+        fixieren</em>. Dann bleiben die Spaltennamen beim Scrollen stehen.
+      </li>
+      <li>
+        <strong>Spalten breit genug machen:</strong> Strg+A drücken, dann auf eine
+        Trennlinie zwischen zwei Spaltenköpfen doppelklicken. Danach sind alle Titel
+        vollständig zu sehen.
+      </li>
+    </ol>
+
+    <p class="klein">
+      Preise stehen mit Komma und die ISBN als Text — sonst macht Excel aus „13.40“ ein
+      Datum und aus einer ISBN eine Potenzzahl. Wer die Datei bearbeitet und speichert,
+      wird einmal gefragt, ob das Format bleiben soll; das darf man bejahen. <strong>Zurück
+      in den Katalog kommt eine bearbeitete Datei allerdings nicht</strong> — Änderungen am
+      Bestand gehören in die Verwaltung, sonst gehen sie beim nächsten Speichern dort
+      verloren.
+    </p>
+  </section>
+
+  <section aria-labelledby="json-titel">
+    <h2 id="json-titel" class="abschnitt">Die JSON-Datei</h2>
+
+    <p class="klein">
+      Sie enthält den Bestand genau so, wie er im Projekt gespeichert ist — mit allen
+      Feldern, auch denen, die im Katalog nicht angezeigt werden. Das ist die Fassung, die
+      ein Bibliotheksprogramm später einliest. Beim Export einer einzelnen Sparte ist die
+      Datei Zeichen für Zeichen dieselbe wie im Projekt.
+    </p>
+  </section>
+
+  <p class="klein">
+    <a href="/verwaltung/">Zurück zur Übersicht</a>
+  </p>
+</Grundgeruest>
+
+<style>
+  .brotkrumen {
+    margin-bottom: var(--abstand-3);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .ueberschrift {
+    margin: 0 0 var(--abstand-4);
+    font-size: var(--text-titel);
+  }
+
+  .anleitung {
+    max-width: var(--breite-text);
+  }
+
+  .auswahl {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--abstand-3);
+    max-width: var(--breite-text);
+    margin-bottom: var(--abstand-5);
+    padding: var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+  }
+
+  .feld {
+    display: flex;
+    flex-direction: column;
+    gap: var(--abstand-1);
+    flex: 1 1 16rem;
+  }
+
+  label {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  select {
+    width: 100%;
+    padding: var(--abstand-2) var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+    color: var(--farbe-text);
+    font: inherit;
+  }
+
+  button {
+    padding: var(--abstand-2) var(--abstand-5);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-akzent);
+    color: var(--farbe-grund);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-normal);
+    cursor: pointer;
+    transition: background-color var(--uebergang);
+  }
+
+  button:hover {
+    background: var(--farbe-akzent-hell);
+    border-color: var(--farbe-akzent-hell);
+  }
+
+  .abschnitt {
+    margin: var(--abstand-5) 0 var(--abstand-3);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--farbe-text-leise);
+  }
+
+  ol {
+    max-width: var(--breite-text);
+    padding-left: var(--abstand-4);
+  }
+
+  li {
+    margin-bottom: var(--abstand-2);
+  }
+
+  .klein {
+    max-width: var(--breite-text);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .fehler {
+    max-width: var(--breite-text);
+    margin: 0 0 var(--abstand-4);
+    padding: var(--abstand-3);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+</style>

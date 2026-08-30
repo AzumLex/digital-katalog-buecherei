@@ -1,0 +1,430 @@
+---
+/**
+ * Die Bestandsliste der Verwaltung: suchen, filtern, blättern, anklicken.
+ *
+ * Die Seite wird bei jedem Aufruf auf dem Server gebaut und liest den Bestand aus der
+ * Ablage — nicht aus den Daten des letzten Builds. Der Unterschied ist der ganze Zweck:
+ * Wer gerade einen Titel gespeichert hat, will ihn hier sofort sehen und nicht erst in
+ * zwei Minuten, wenn der Katalog neu gebaut ist.
+ *
+ * **Ohne JavaScript vollständig bedienbar.** Suche, Filter und Blätterung sind ein
+ * gewöhnliches Formular und gewöhnliche Links; das einzige Skript zeigt die Meldung an,
+ * die von der vorigen Seite mitgekommen ist. Gefiltert wird im Arbeitsspeicher der
+ * Serverfunktion (plan.md § 4.4) — bei 3 500 Einträgen ist das keine messbare Wartezeit,
+ * und ein Index wäre Ballast.
+ */
+import Grundgeruest from '../../layouts/Grundgeruest.astro';
+import Blaetterung from '../../components/Blaetterung.astro';
+import { blaettere, filtereMedien, liesBestand } from '../../lib/pflege';
+import { AblageFehler } from '../../lib/github';
+import { SPARTEN, spartenUebersicht, type Medium, type Sparte } from '../../lib/daten';
+import { autorAnzeige, statusText } from '../../lib/anzeige';
+import { seiteVon, type Seite } from '../../lib/sortierung';
+
+export const prerender = false;
+
+const params = Astro.url.searchParams;
+const suche = (params.get('suche') ?? '').trim();
+const gewaehlt = params.get('sparte');
+const sparte: Sparte | undefined = SPARTEN.includes(gewaehlt as Sparte)
+  ? (gewaehlt as Sparte)
+  : undefined;
+const seitenNummer = Number(params.get('seite') ?? '1') || 1;
+
+/**
+ * Ein Fehler beim Lesen ist hier kein Absturz, sondern eine Nachricht.
+ *
+ * Fehlt das Zugriffstoken oder ist es abgelaufen, steht in `AblageFehler.message` bereits
+ * der Satz, der zu sagen ist — samt dem, was zu tun wäre (plan.md § 5). Ihn durchzureichen
+ * ist genau richtig; eine Fehlerseite der Plattform wäre es nicht.
+ */
+let seite: Seite<Medium> = seiteVon<Medium>([], 1);
+let anzahl = 0;
+let fehler: string | null = null;
+
+try {
+  const sicht = await liesBestand(sparte ? [sparte] : undefined);
+  const gefiltert = filtereMedien(sicht.medien, suche);
+  anzahl = gefiltert.length;
+  seite = blaettere(gefiltert, seitenNummer);
+} catch (ausnahme) {
+  fehler =
+    ausnahme instanceof AblageFehler
+      ? ausnahme.message
+      : 'Der Bestand ließ sich gerade nicht lesen. Bitte die Seite neu laden; wenn es ' +
+        'wieder nicht geht, bei der Person melden, die den Katalog betreut.';
+}
+
+/** Die Adresse einer Seitenzahl — mit Suchbegriff und Filter, damit beides erhalten bleibt. */
+function adresseZurSeite(nummer: number): string {
+  const ziel = new URL('/verwaltung/bestand/', Astro.url);
+  if (suche) ziel.searchParams.set('suche', suche);
+  if (sparte) ziel.searchParams.set('sparte', sparte);
+  if (nummer > 1) ziel.searchParams.set('seite', String(nummer));
+  return `${ziel.pathname}${ziel.search}`;
+}
+
+/**
+ * Die Adresse eines Eintrags.
+ *
+ * Die Sparte reist als Hinweis mit: Damit liest die Bearbeitungsseite eine Datei statt
+ * sieben. Stimmt der Hinweis nicht mehr, findet sie den Eintrag trotzdem — er ist eine
+ * Abkürzung, keine Bedingung.
+ */
+function adresseZumEintrag(medium: Medium): string {
+  return `/verwaltung/bearbeiten/${medium.id}/?sparte=${medium.sparte}`;
+}
+
+const spartenNamen = new Map(spartenUebersicht.map((e) => [e.sparte as string, e.bezeichnung]));
+const zahl = new Intl.NumberFormat('de-AT');
+---
+
+<Grundgeruest titel="Bestand · Verwaltung" nichtIndexieren>
+  <nav class="brotkrumen" aria-label="Pfad">
+    <a href="/verwaltung/">Verwaltung</a> <span aria-hidden="true">›</span> Bestand
+  </nav>
+
+  <div class="kopf">
+    <h1 class="ueberschrift">Bestand</h1>
+    <div class="wege">
+      <a class="knopf" href="/verwaltung/neu/">Neuer Titel</a>
+      <a class="knopf leise" href="/verwaltung/papierkorb/">Papierkorb</a>
+    </div>
+  </div>
+
+  <div id="meldung" class="meldung" role="status" aria-live="polite"></div>
+
+  {fehler && <p class="fehler">{fehler}</p>}
+
+  <form class="suche" method="get" action="/verwaltung/bestand/">
+    <div class="feld">
+      <label for="suche">Suchen</label>
+      <input
+        id="suche"
+        name="suche"
+        type="search"
+        value={suche}
+        placeholder="Titel, Autor, ISBN, Signatur …"
+      />
+    </div>
+
+    <div class="feld">
+      <label for="sparte">Sparte</label>
+      <select id="sparte" name="sparte">
+        <option value="">Alle Sparten</option>
+        {
+          SPARTEN.map((name) => (
+            <option value={name} selected={name === sparte}>
+              {spartenNamen.get(name) ?? name}
+            </option>
+          ))
+        }
+      </select>
+    </div>
+
+    <button type="submit">Anzeigen</button>
+    {
+      (suche || sparte) && (
+        <a class="zuruecksetzen" href="/verwaltung/bestand/">
+          Alles anzeigen
+        </a>
+      )
+    }
+  </form>
+
+  {
+    !fehler && (
+      <p class="stand">
+        {anzahl === 0
+          ? 'Kein Eintrag passt zu dieser Suche.'
+          : `${zahl.format(anzahl)} ${anzahl === 1 ? 'Eintrag' : 'Einträge'}` +
+            (seite.anzahlSeiten > 1
+              ? `, angezeigt ${zahl.format(seite.von)}–${zahl.format(seite.bis)}.`
+              : '.')}
+      </p>
+    )
+  }
+
+  {
+    seite.eintraege.length > 0 && (
+      <div class="tabellenhuelle">
+        <table>
+          <caption class="nur-vorlesen">
+            Einträge im Bestand. Ein Klick auf den Titel öffnet ihn zum Bearbeiten.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Titel</th>
+              <th scope="col">Autor</th>
+              <th scope="col">Sparte</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="rechts">
+                Exemplare
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {seite.eintraege.map((medium) => (
+              <tr>
+                <td>
+                  <a href={adresseZumEintrag(medium)}>{medium.titel}</a>
+                  {medium.reihe && (
+                    <span class="nebensache">
+                      {medium.reihe}
+                      {medium.band !== undefined && <> · Band {medium.band}</>}
+                    </span>
+                  )}
+                  <span class="kennung">{medium.id}</span>
+                </td>
+                <td>{autorAnzeige(medium) ?? <span class="leer">—</span>}</td>
+                <td>{spartenNamen.get(medium.sparte) ?? medium.sparte}</td>
+                <td>
+                  <span class:list={['status', { auffaellig: medium.status !== 'verfuegbar' }]}>
+                    {statusText(medium.status)}
+                  </span>
+                </td>
+                <td class="rechts zahl">{medium.bestand ?? 1}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  <Blaetterung seite={seite} adresse={adresseZurSeite} />
+</Grundgeruest>
+
+<script>
+  import { zeigeGemerkteMeldung } from '../../scripts/meldung';
+  zeigeGemerkteMeldung(document.querySelector<HTMLElement>('#meldung'));
+</script>
+
+<style>
+  .brotkrumen {
+    margin-bottom: var(--abstand-3);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .kopf {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--abstand-3);
+    margin-bottom: var(--abstand-4);
+  }
+
+  .ueberschrift {
+    margin: 0;
+    font-size: var(--text-titel);
+  }
+
+  .wege {
+    display: flex;
+    gap: var(--abstand-2);
+  }
+
+  .knopf {
+    padding: var(--abstand-1) var(--abstand-3);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-akzent);
+    color: var(--farbe-grund);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    text-decoration: none;
+  }
+
+  .knopf:hover {
+    background: var(--farbe-akzent-hell);
+    border-color: var(--farbe-akzent-hell);
+    color: var(--farbe-grund);
+  }
+
+  .knopf.leise {
+    background: var(--farbe-flaeche);
+    border-color: var(--farbe-rand-kraeftig);
+    color: var(--farbe-text-leise);
+  }
+
+  .knopf.leise:hover {
+    color: var(--farbe-akzent);
+    border-color: var(--farbe-akzent);
+  }
+
+  .suche {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--abstand-3);
+    margin-bottom: var(--abstand-4);
+    padding: var(--abstand-3);
+    border: 1px solid var(--farbe-rand);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+  }
+
+  .suche .feld {
+    display: flex;
+    flex-direction: column;
+    gap: var(--abstand-1);
+    flex: 1 1 12rem;
+  }
+
+  label {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  input,
+  select {
+    width: 100%;
+    padding: var(--abstand-2) var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+    color: var(--farbe-text);
+    font: inherit;
+  }
+
+  button {
+    padding: var(--abstand-2) var(--abstand-4);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche-leise);
+    color: var(--farbe-text);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    cursor: pointer;
+  }
+
+  button:hover {
+    border-color: var(--farbe-akzent);
+    color: var(--farbe-akzent);
+  }
+
+  .zuruecksetzen {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .stand {
+    margin: 0 0 var(--abstand-3);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  /* Fünf Spalten passen auf kein Handy. Statt sie zu stapeln, darf die Tabelle in ihrem
+     eigenen Rahmen wandern — die Seite selbst bleibt dabei stehen. */
+  .tabellenhuelle {
+    overflow-x: auto;
+    margin-bottom: var(--abstand-4);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-klein);
+  }
+
+  th {
+    padding: var(--abstand-2) var(--abstand-3) var(--abstand-2) 0;
+    border-bottom: 1px solid var(--farbe-rand-kraeftig);
+    text-align: left;
+    font-family: var(--schrift-ui);
+    font-size: var(--text-winzig);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--farbe-text-leise);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: var(--abstand-2) var(--abstand-3) var(--abstand-2) 0;
+    border-bottom: 1px solid var(--farbe-rand);
+    vertical-align: top;
+  }
+
+  td a {
+    font-size: var(--text-normal);
+  }
+
+  .nebensache,
+  .kennung {
+    display: block;
+    font-family: var(--schrift-ui);
+    font-size: var(--text-winzig);
+    color: var(--farbe-text-leise);
+  }
+
+  .kennung {
+    font-family: var(--schrift-zahl);
+  }
+
+  .leer {
+    color: var(--farbe-text-leise);
+  }
+
+  .status {
+    font-family: var(--schrift-ui);
+  }
+
+  /* Alles außer „verfügbar“ ist eine Aussage, die auffallen soll — besonders
+     „ausgeschieden“, das an dieser Stelle die Alternative zum Löschen ist. */
+  .status.auffaellig {
+    color: var(--farbe-akzent);
+  }
+
+  .rechts {
+    text-align: right;
+  }
+
+  .zahl {
+    font-family: var(--schrift-zahl);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .fehler {
+    max-width: var(--breite-text);
+    margin: 0 0 var(--abstand-4);
+    padding: var(--abstand-3);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .meldung:empty {
+    display: none;
+  }
+
+  .meldung {
+    max-width: var(--breite-text);
+    margin: 0 0 var(--abstand-4);
+    padding: var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche-leise);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .meldung :global(p) {
+    margin: 0;
+  }
+
+  .meldung.schlecht {
+    border-color: var(--farbe-akzent);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+  }
+</style>

@@ -1,0 +1,193 @@
+---
+/**
+ * „Neuer Titel“ — dasselbe Formular wie beim Bearbeiten, nur leer. Darüber die ISBN.
+ *
+ * Die Seite selbst liest nichts aus der Ablage: Ein neuer Eintrag braucht keinen Bestand,
+ * und die Prüfung auf eine schon vergebene Kennung macht die Route beim Speichern
+ * (`pruefeIdFrei`, plan.md § 4.3). Das ist der schnellste Weg zu einem Formular, das
+ * dasteht — kein Wartebalken, bevor überhaupt etwas eingetippt werden kann.
+ *
+ * **Das ISBN-Feld steht ganz oben** (plan.md § 4.4), außerhalb des Formulars und mit einem
+ * eigenen Knopf. Es ist kein Feld des Eintrags, sondern eine Frage an `/api/isbn/`: Was
+ * weiß jemand über dieses Buch? Was zurückkommt, füllt das Formular darunter — und mehr
+ * nicht. Gespeichert wird erst, wenn die Bücherei die Angaben durchgesehen hat und selbst
+ * auf „Speichern“ drückt.
+ */
+import Grundgeruest from '../../layouts/Grundgeruest.astro';
+import Medienformular from '../../components/Medienformular.astro';
+
+export const prerender = false;
+---
+
+<Grundgeruest titel="Neuer Titel · Verwaltung" nichtIndexieren>
+  <nav class="brotkrumen" aria-label="Pfad">
+    <a href="/verwaltung/">Verwaltung</a> <span aria-hidden="true">›</span>
+    <a href="/verwaltung/bestand/">Bestand</a> <span aria-hidden="true">›</span> Neuer Titel
+  </nav>
+
+  <h1 class="ueberschrift">Neuer Titel</h1>
+
+  <div class="anleitung">
+    <p>
+      <strong>Pflicht sind nur drei Angaben:</strong> Sparte, Art des Mediums und Titel. Dazu
+      kommt die Kennung — ein kurzes Kürzel, unter dem der Titel dauerhaft zu finden ist.
+    </p>
+    <p>
+      <strong>Was Sie nicht wissen, lassen Sie leer.</strong> Der Katalog zeigt einfach nichts
+      an, wo nichts steht. Bitte nichts wie „unbekannt“ oder „–“ eintragen.
+    </p>
+    <p>
+      <strong>Sie haben das Buch schon?</strong> Dann legen Sie keinen zweiten Eintrag an,
+      sondern öffnen den vorhandenen im <a href="/verwaltung/bestand/">Bestand</a> und erhöhen
+      dort „Exemplare“ auf 2.
+    </p>
+    <p class="klein">
+      Nach dem Speichern dauert es ein bis zwei Minuten, bis der Titel im öffentlichen Katalog
+      steht. Sie müssen dafür nichts weiter tun.
+    </p>
+  </div>
+
+  <section class="isbnabruf" aria-labelledby="isbn-titel">
+    <h2 id="isbn-titel">Mit der ISBN anfangen</h2>
+    <p class="klein">
+      Die ISBN ist die dreizehnstellige Zahl unter dem Strichcode; bei älteren Büchern hat
+      sie zehn Stellen und steht im Impressum. Bindestriche dürfen mit — sie werden
+      weggerechnet.
+    </p>
+
+    <div class="zeile">
+      <label class="nur-vorlesen" for="isbn-abruf">ISBN</label>
+      <input
+        id="isbn-abruf"
+        type="text"
+        inputmode="numeric"
+        autocomplete="off"
+        placeholder="978-3-…"
+      />
+      <button type="button" id="daten-holen">Daten holen</button>
+    </div>
+
+    <p id="isbn-hinweis" class="isbn-hinweis" role="status" aria-live="polite"></p>
+
+    <p class="klein">
+      Keine ISBN zur Hand, oder nichts gefunden? Dann tragen Sie die Angaben unten von Hand
+      ein. Pflicht sind nur Sparte, Art des Mediums und Titel.
+    </p>
+  </section>
+
+  <Medienformular />
+</Grundgeruest>
+
+<style>
+  .brotkrumen {
+    margin-bottom: var(--abstand-3);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .ueberschrift {
+    margin: 0 0 var(--abstand-4);
+    font-size: var(--text-titel);
+  }
+
+  .anleitung {
+    max-width: var(--breite-text);
+    margin-bottom: var(--abstand-5);
+  }
+
+  .anleitung p {
+    margin: 0 0 var(--abstand-2);
+  }
+
+  .klein {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .isbnabruf {
+    max-width: var(--breite-text);
+    margin-bottom: var(--abstand-5);
+    padding: var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche-leise);
+  }
+
+  .isbnabruf h2 {
+    margin: 0 0 var(--abstand-2);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--farbe-text-leise);
+  }
+
+  .isbnabruf .klein {
+    margin: 0 0 var(--abstand-3);
+  }
+
+  .zeile {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--abstand-2);
+  }
+
+  .zeile input {
+    flex: 1 1 14rem;
+    padding: var(--abstand-2) var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+    color: var(--farbe-text);
+    font: inherit;
+    /* Ziffern in gleicher Breite: Beim Vergleichen mit dem Buchrücken zählt man Stellen. */
+    font-family: var(--schrift-zahl);
+  }
+
+  .zeile button {
+    padding: var(--abstand-2) var(--abstand-4);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-akzent);
+    color: var(--farbe-grund);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-normal);
+    cursor: pointer;
+    transition: background-color var(--uebergang);
+  }
+
+  .zeile button:hover {
+    background: var(--farbe-akzent-hell);
+    border-color: var(--farbe-akzent-hell);
+  }
+
+  .zeile button[disabled] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  /* Leer und damit unsichtbar, bis das Skript etwas hineinschreibt. */
+  .isbn-hinweis:empty {
+    display: none;
+  }
+
+  .isbn-hinweis {
+    margin: var(--abstand-3) 0 0;
+    padding: var(--abstand-2) var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    line-height: var(--zeilenhoehe-eng);
+  }
+
+  .isbn-hinweis.schlecht {
+    border-color: var(--farbe-akzent);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+  }
+</style>

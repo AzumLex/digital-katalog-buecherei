@@ -1,0 +1,136 @@
+---
+/**
+ * Die Anmeldemaske. Ein Feld, ein Knopf.
+ *
+ * Die Seite prüft nichts — das tut `POST /api/anmelden/`. Sie zeigt nur an, was beim
+ * letzten Versuch herauskam, und der Grund steht als kurzes Wort in der Adresszeile:
+ * `?fehler=falsch` oder `?fehler=einrichtung`. Der ausformulierte Satz steht hier und
+ * wandert nicht durch die Adresse — sonst könnte ein zugeschickter Link der Bücherei
+ * einen beliebigen Text unterschieben, der aussieht, als käme er vom Katalog.
+ */
+import Grundgeruest from '../../layouts/Grundgeruest.astro';
+import { SITZUNGS_COOKIE, pruefeSitzung } from '../../lib/anmeldung';
+
+export const prerender = false;
+
+// Wer schon angemeldet ist, hat hier nichts verloren. Ohne diese Zeile bliebe nach dem
+// Anmelden ein Formular im Verlauf, das beim Zurückblättern erneut nach dem Passwort
+// fragt — und der Eindruck entsteht, die Anmeldung habe nicht gehalten.
+if (pruefeSitzung(Astro.cookies.get(SITZUNGS_COOKIE)?.value)) {
+  return Astro.redirect('/verwaltung/');
+}
+
+const fehler = Astro.url.searchParams.get('fehler');
+const abgemeldet = Astro.url.searchParams.has('abgemeldet');
+const weiter = Astro.url.searchParams.get('weiter') ?? '';
+
+const meldungen: Record<string, string> = {
+  falsch: 'Das Passwort stimmt nicht. Bitte noch einmal versuchen.',
+  einrichtung:
+    'Die Verwaltung ist noch nicht fertig eingerichtet — es ist kein Passwort ' +
+    'hinterlegt. Das ist nichts, was Sie falsch gemacht haben: Bitte bei der Person ' +
+    'melden, die den Katalog betreut.',
+};
+---
+
+<Grundgeruest titel="Anmelden · Verwaltung" nichtIndexieren>
+  <h1 class="ueberschrift">Verwaltung</h1>
+
+  {abgemeldet && <p class="hinweis">Sie sind abgemeldet.</p>}
+  {fehler && <p class="fehler">{meldungen[fehler] ?? meldungen.falsch}</p>}
+
+  <form class="anmeldung" method="post" action="/api/anmelden/">
+    <label for="passwort">Passwort</label>
+    <input
+      id="passwort"
+      name="passwort"
+      type="password"
+      required
+      autofocus
+      autocomplete="current-password"
+    />
+    {/* Wohin es nach dem Anmelden gehen soll — gesetzt von der Middleware, geprüft von
+        der Route. Das Feld ist versteckt, weil es niemanden etwas angeht, der nicht
+        gerade auf eine bestimmte Seite wollte. */}
+    {weiter && <input type="hidden" name="weiter" value={weiter} />}
+    <button type="submit">Anmelden</button>
+  </form>
+
+  <p class="klein">
+    Diese Seite ist nur für die Bestandspflege. Der Katalog selbst ist
+    <a href="/">hier</a> und braucht kein Passwort.
+  </p>
+</Grundgeruest>
+
+<style>
+  .ueberschrift {
+    margin: 0 0 var(--abstand-4);
+    font-size: var(--text-titel);
+  }
+
+  .anmeldung {
+    display: flex;
+    flex-direction: column;
+    gap: var(--abstand-2);
+    max-width: 22rem;
+    margin-bottom: var(--abstand-4);
+  }
+
+  label {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  input {
+    padding: var(--abstand-2) var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+    color: var(--farbe-text);
+    font: inherit;
+  }
+
+  button {
+    align-self: flex-start;
+    margin-top: var(--abstand-2);
+    padding: var(--abstand-2) var(--abstand-4);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-akzent);
+    color: var(--farbe-grund);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-normal);
+    cursor: pointer;
+    transition: background-color var(--uebergang);
+  }
+
+  button:hover {
+    background: var(--farbe-akzent-hell);
+    border-color: var(--farbe-akzent-hell);
+  }
+
+  .fehler,
+  .hinweis {
+    max-width: var(--breite-text);
+    margin: 0 0 var(--abstand-4);
+    padding: var(--abstand-3);
+    border-radius: var(--radius);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    background: var(--farbe-flaeche-leise);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .fehler {
+    border-color: var(--farbe-akzent);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+  }
+
+  .klein {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+</style>

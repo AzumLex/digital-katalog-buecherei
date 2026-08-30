@@ -1,0 +1,265 @@
+---
+/**
+ * Der Papierkorb: gelöschte Einträge, mit einem Knopf zum Zurückholen.
+ *
+ * Was hier liegt, steht in `src/data/_geloescht.json` — einer Datei mit führendem
+ * Unterstrich, die Build und Prüfung überspringen (plan.md § 4.5). Die Einträge sind
+ * deshalb aus dem Katalog verschwunden, aber vollständig erhalten: Es ist derselbe
+ * Datensatz, der auch wieder zurückgeht.
+ *
+ * Ein Datum steht bewusst nicht daneben. Der Eintrag muss beim Zurückholen genau der sein,
+ * der gelöscht wurde, und das Schema lässt kein zusätzliches Feld zu. Wann etwas gelöscht
+ * wurde, steht in der Historie des Repositories — ein Commit je Löschung, mit Datum und
+ * Titel.
+ */
+import Grundgeruest from '../../layouts/Grundgeruest.astro';
+import { liesPapierkorb } from '../../lib/pflege';
+import { AblageFehler } from '../../lib/github';
+import { spartenUebersicht, type Medium } from '../../lib/daten';
+import { autorAnzeige } from '../../lib/anzeige';
+
+export const prerender = false;
+
+let eintraege: Medium[] = [];
+let fehler: string | null = null;
+
+try {
+  eintraege = (await liesPapierkorb()).datei.items;
+} catch (ausnahme) {
+  fehler =
+    ausnahme instanceof AblageFehler
+      ? ausnahme.message
+      : 'Der Papierkorb ließ sich gerade nicht lesen. Bitte die Seite neu laden; wenn es ' +
+        'wieder nicht geht, bei der Person melden, die den Katalog betreut.';
+}
+
+const spartenNamen = new Map(spartenUebersicht.map((e) => [e.sparte as string, e.bezeichnung]));
+---
+
+<Grundgeruest titel="Papierkorb · Verwaltung" nichtIndexieren>
+  <nav class="brotkrumen" aria-label="Pfad">
+    <a href="/verwaltung/">Verwaltung</a> <span aria-hidden="true">›</span>
+    <a href="/verwaltung/bestand/">Bestand</a> <span aria-hidden="true">›</span> Papierkorb
+  </nav>
+
+  <h1 class="ueberschrift">Papierkorb</h1>
+
+  <div id="meldung" class="meldung" role="status" aria-live="polite"></div>
+
+  {fehler && <p class="fehler">{fehler}</p>}
+
+  <div class="anleitung">
+    <p>
+      Hier liegt, was gelöscht wurde. Die Einträge sind nicht mehr im Katalog, aber
+      vollständig vorhanden — <strong>„Zurückholen“ stellt sie wieder her</strong>, so wie sie
+      waren.
+    </p>
+    <p class="klein">
+      Ein Buch, das die Bücherei aussortiert hat, gehört nicht hierher: Es bekommt im Bestand
+      den Status „ausgeschieden“ und bleibt damit im Katalog sichtbar. Der Papierkorb ist für
+      Einträge, die aus Versehen entstanden sind.
+    </p>
+  </div>
+
+  {
+    !fehler && eintraege.length === 0 && (
+      <p class="leer">
+        Der Papierkorb ist leer. Es wurde noch nichts gelöscht — oder alles schon
+        zurückgeholt.
+      </p>
+    )
+  }
+
+  {
+    eintraege.length > 0 && (
+      <div class="tabellenhuelle">
+        <table>
+          <caption class="nur-vorlesen">Gelöschte Einträge mit der Möglichkeit, sie zurückzuholen.</caption>
+          <thead>
+            <tr>
+              <th scope="col">Titel</th>
+              <th scope="col">Autor</th>
+              <th scope="col">Gehörte zu</th>
+              <th scope="col">
+                <span class="nur-vorlesen">Zurückholen</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {eintraege.map((medium) => (
+              <tr>
+                <td>
+                  <span class="titel">{medium.titel}</span>
+                  <span class="kennung">{medium.id}</span>
+                </td>
+                <td>{autorAnzeige(medium) ?? <span class="ohne">—</span>}</td>
+                <td>{spartenNamen.get(medium.sparte) ?? medium.sparte}</td>
+                <td class="rechts">
+                  <button type="button" data-wiederherstellen={medium.id}>
+                    Zurückholen
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  <p class="klein">
+    <a href="/verwaltung/bestand/">Zurück zum Bestand</a>
+  </p>
+</Grundgeruest>
+
+<script>
+  import { startePapierkorb } from '../../scripts/papierkorb';
+  startePapierkorb();
+</script>
+
+<style>
+  .brotkrumen {
+    margin-bottom: var(--abstand-3);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .ueberschrift {
+    margin: 0 0 var(--abstand-4);
+    font-size: var(--text-titel);
+  }
+
+  .anleitung {
+    max-width: var(--breite-text);
+    margin-bottom: var(--abstand-5);
+  }
+
+  .anleitung p {
+    margin: 0 0 var(--abstand-2);
+  }
+
+  .klein {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .leer {
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    color: var(--farbe-text-leise);
+  }
+
+  .tabellenhuelle {
+    overflow-x: auto;
+    margin-bottom: var(--abstand-4);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-klein);
+  }
+
+  th {
+    padding: var(--abstand-2) var(--abstand-3) var(--abstand-2) 0;
+    border-bottom: 1px solid var(--farbe-rand-kraeftig);
+    text-align: left;
+    font-family: var(--schrift-ui);
+    font-size: var(--text-winzig);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--farbe-text-leise);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: var(--abstand-2) var(--abstand-3) var(--abstand-2) 0;
+    border-bottom: 1px solid var(--farbe-rand);
+    vertical-align: top;
+  }
+
+  .titel {
+    display: block;
+    font-size: var(--text-normal);
+  }
+
+  .kennung {
+    display: block;
+    font-family: var(--schrift-zahl);
+    font-size: var(--text-winzig);
+    color: var(--farbe-text-leise);
+  }
+
+  .ohne {
+    color: var(--farbe-text-leise);
+  }
+
+  .rechts {
+    text-align: right;
+  }
+
+  button {
+    padding: var(--abstand-1) var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche);
+    color: var(--farbe-text-leise);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+      color var(--uebergang),
+      border-color var(--uebergang);
+  }
+
+  button:hover {
+    color: var(--farbe-akzent);
+    border-color: var(--farbe-akzent);
+  }
+
+  button[disabled] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  .fehler {
+    max-width: var(--breite-text);
+    margin: 0 0 var(--abstand-4);
+    padding: var(--abstand-3);
+    border: 1px solid var(--farbe-akzent);
+    border-radius: var(--radius);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .meldung:empty {
+    display: none;
+  }
+
+  .meldung {
+    max-width: var(--breite-text);
+    margin: 0 0 var(--abstand-4);
+    padding: var(--abstand-3);
+    border: 1px solid var(--farbe-rand-kraeftig);
+    border-radius: var(--radius);
+    background: var(--farbe-flaeche-leise);
+    font-family: var(--schrift-ui);
+    font-size: var(--text-klein);
+  }
+
+  .meldung :global(p) {
+    margin: 0;
+  }
+
+  .meldung.schlecht {
+    border-color: var(--farbe-akzent);
+    background: var(--farbe-akzent-leise);
+    color: var(--farbe-akzent);
+  }
+</style>

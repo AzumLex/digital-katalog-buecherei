@@ -8,10 +8,15 @@ Der Katalog ist zugleich Vorbereitung auf den späteren Umstieg auf ein richtige
 Bibliotheksprogramm: Die Datenfelder sind schon so geschnitten, dass sie sich ohne
 Informationsverlust dorthin übernehmen lassen.
 
-**Stand: Phase 5 — bereit zum Veröffentlichen.** Startseite, Sparten-Listen mit Filtern,
-eine Detailseite je Titel, Volltextsuche, Sitemap und 404-Seite stehen: 1058 fertig gebaute
-Seiten plus Such- und Filterdaten. Stöbern, Sortieren und Blättern funktionieren ohne
-JavaScript; Suche und Filter brauchen es.
+**Stand: Der Katalog steht, und der Bestand wird über die Website gepflegt.** Startseite,
+Sparten-Listen mit Filtern, eine Detailseite je Titel, Volltextsuche, Sitemap und 404-Seite:
+1058 fertig gebaute Seiten plus Such- und Filterdaten. Stöbern, Sortieren und Blättern
+funktionieren ohne JavaScript; Suche und Filter brauchen es.
+
+Dazu kommt die **Verwaltung** unter `/verwaltung/` — mit Passwort, ISBN-Abruf, Papierkorb,
+Export und Änderungsprotokoll. Sie ist der einzige Teil des Projekts, der auf einem Server
+läuft; der Katalog selbst bleibt eine Sammlung fertiger Dateien. Die Anleitung dazu steht
+weiter unten unter „Anleitung für die Bücherei".
 
 Eine frisch aufgerufene Seite wiegt **3,5 bis 12 KB** (brotli). Such- und Filterdaten
 werden erst geholt, wenn jemand sie wirklich braucht.
@@ -30,13 +35,16 @@ npm run dev       # startet http://localhost:4321
 
 | Befehl | Was er tut |
 |---|---|
-| `npm run dev` | Entwicklungsserver mit automatischem Neuladen |
+| `npm run dev` | Entwicklungsserver mit automatischem Neuladen — Verwaltung und Schnittstelle laufen dort mit |
 | `npm run validate` | prüft alle Daten gegen das Schema (Node, läuft überall) |
 | `npm run build` | erzeugt die fertige Website in `dist/` (prüft vorher die Daten) |
-| `npm run preview` | zeigt das Ergebnis aus `dist/` lokal an |
+| `npm run preview` | seit dem Vercel-Adapter nicht mehr möglich — der Adapter bringt die Laufzeit mit, die Astro dafür bräuchte. Für eine Vorschau `npm run dev` nehmen. |
 | `npm run check` | prüft Astro- und TypeScript-Dateien auf Fehler |
 | `npm run suchtest` | prüft die Suche gegen den gebauten Index (nach `npm run build`) |
 | `npm run filtertest` | prüft Facetten und Filter gegen die gebauten Sparten-Dateien |
+| `npm run formattest` | prüft, ob der Schreibweg der Verwaltung die Datendateien byte-gleich zurückgibt |
+| `npm run isbntest` | rechnet die Prüfziffer aller ISBN nach und hält den id-Vorschlag gegen die vorhandenen Kennungen |
+| `npm run passwort` | erzeugt Passwort-Hash und Sitzungsgeheimnis für die Verwaltung |
 | `npm run validate:py` | dieselbe Datenprüfung mit `validate.py` — braucht Python |
 | `npm run vercelpruefen` | prüft `vercel.json` gegen das Schema von Vercel — braucht Python |
 
@@ -244,7 +252,79 @@ src/data/cds.json                 CDs
 
 ---
 
+## Anleitung für die Bücherei
+
+**So wird der Bestand gepflegt.** Sie brauchen dafür nichts als einen Browser und das
+Passwort — kein GitHub-Konto, keine JSON-Datei, kein installiertes Programm.
+
+### Anmelden
+
+`https://<adresse>/verwaltung/` aufrufen und das Passwort eingeben. Sie bleiben angemeldet,
+bis Sie sich abmelden.
+
+### Ein Buch hinzufügen
+
+1. **„Neuer Titel"** anklicken.
+2. **Die ISBN eintippen** (die Zahl unter dem Strichcode) und **„Daten holen"** drücken.
+   Titel, Autor, Verlag, Jahr und Seitenzahl füllen sich von selbst.
+   *Keine ISBN, oder nichts gefunden?* Dann tragen Sie die Angaben von Hand ein. Pflicht sind
+   nur **Sparte**, **Art des Mediums** und **Titel**.
+3. **Durchsehen und berichtigen.** Die geholten Angaben sind Vorschläge, keine Wahrheit.
+4. **Was Sie nicht wissen, lassen Sie leer.** Der Katalog zeigt einfach nichts an, wo nichts
+   steht — schreiben Sie bitte nichts wie „unbekannt" oder „-" hinein.
+5. **„Speichern"**. Nach ein bis zwei Minuten steht der Titel im öffentlichen Katalog.
+   Sie müssen nichts weiter tun.
+
+> **Sie haben das Buch schon?** Legen Sie keinen zweiten Eintrag an. Öffnen Sie den
+> vorhandenen und erhöhen Sie **„Exemplare"** auf 2. Die Verwaltung weist Sie darauf hin, wenn
+> die ISBN schon im Katalog steht.
+
+### Etwas ändern
+
+„Bestand" → suchen → Zeile anklicken → ändern → speichern.
+**Die „Kennung" lässt sich nicht ändern.** Das ist Absicht: An ihr hängt die Adresse der Seite.
+
+### Etwas löschen
+
+Zeile anklicken → **„In den Papierkorb legen"**. Der Eintrag wandert in den **Papierkorb** und
+lässt sich dort jederzeit zurückholen. Verloren geht nichts.
+
+> **Buch aussortiert, verkauft oder verschenkt?** Dann nicht löschen, sondern den **Status**
+> auf „ausgeschieden" setzen. Löschen ist für Einträge gedacht, die aus Versehen entstanden
+> sind.
+
+### Eine Liste ausdrucken oder in Excel öffnen
+
+„Export" → Sparte wählen (oder „Alle") → Format wählen. **Excel (CSV)** für den täglichen
+Gebrauch, **JSON** für den späteren Umzug in ein Bibliotheksprogramm. Zwei Handgriffe beim
+ersten Öffnen der Excel-Datei lohnen sich; sie stehen auf der Exportseite.
+
+### Nachsehen, was geändert wurde
+
+„Protokoll" zeigt jede Änderung am Bestand mit Datum, Uhrzeit und Titel — und zu jeder einen
+Verweis darauf, was vorher dastand. Löschen oder ändern lässt sich daran nichts.
+
+### Wenn etwas nicht geht
+
+- **„Die Prüfziffer stimmt nicht"** — bei der ISBN hat sich eine Ziffer verlesen. Noch einmal
+  vergleichen; die ISBN steht meist auch im Impressum.
+- **„Diese Kennung ist schon vergeben"** — es gibt schon einen Eintrag mit gleichem Autor und
+  Titel. Nachsehen, ob es dasselbe Buch ist (dann „Exemplare" erhöhen).
+- **„Bitte die Seite neu laden"** — es war noch ein zweiter Tab offen. Neu laden, Änderung
+  wiederholen.
+- **„Das Zugriffstoken ist abgelaufen"** — das ist nichts, was Sie falsch gemacht haben.
+  Bei der Person melden, die den Katalog betreut; es ist in fünf Minuten erneuert.
+- **Die Änderung ist nicht im Katalog zu sehen** — ein bis zwei Minuten warten und die Seite
+  neu laden. Steht sie nach fünf Minuten immer noch nicht da, melden.
+
+---
+
 ## Einen Titel eintragen und veröffentlichen — ganz ohne Installation
+
+> **Diese Anleitung ist die Rückfallebene.** Seit es die Verwaltung gibt (siehe oben), wird
+> der Bestand nicht mehr von Hand in JSON-Dateien gepflegt. Sie bleibt trotzdem stehen und
+> gilt unverändert — für den Tag, an dem die Verwaltung einmal nicht läuft, das Zugriffstoken
+> abgelaufen ist oder etwas gerettet werden muss. Wer sie nicht braucht, überspringt sie.
 
 **Diese Anleitung setzt nichts voraus außer einem Browser und einem GitHub-Konto.** Es muss
 nichts installiert werden, es wird kein Programm gestartet. Wer schon einmal ein Formular
@@ -583,6 +663,29 @@ src/lib/facetten.ts         Filter: Ableitung, Zählung, Adresszeile — Build U
 src/lib/listendaten.ts      baut /liste/<sparte>.json; nur im Build
 src/lib/zeile.ts            was in einer Listenzeile steht — Build UND Browser
 
+                            ── die Verwaltung ──
+src/lib/anmeldung.ts        Passwort-Hash und signiertes Sitzungscookie (node:crypto)
+src/lib/github.ts           der einzige Weg zum Repository — und das einzige Modul,
+                            das GitHub kennt
+src/lib/pruefung.ts         Schemaprüfung — von validate.mjs UND der Verwaltung benutzt
+src/lib/bestand.ts          wie eine Datendatei nach einer Änderung aussieht; Papierkorb
+src/lib/pflege.ts           der Ablauf: prüfen, ändern, speichern
+src/lib/formular.ts         welche Felder das Formular hat — aus Schema und anzeige.ts
+src/lib/isbn.ts             Prüfziffer, Schreibweisen, ISBN-10 ↔ ISBN-13
+src/lib/isbndienste.ts      Google Books und OpenLibrary hinter einer Schnittstelle
+src/lib/kennung.ts          der id-Vorschlag nach der Regel aus diesem README
+src/lib/export.ts           CSV für Excel und JSON im Dateiformat aus src/data/
+src/lib/antworten.ts        eine Antwortform für alle Routen unter /api/
+src/middleware.ts           der Schutzwall vor /verwaltung/ und /api/
+
+src/pages/verwaltung/       Übersicht, Anmeldung, Bestand, Neu, Bearbeiten,
+                            Papierkorb, Export, Protokoll
+src/pages/api/              Anmelden, Abmelden, Medien (lesen/schreiben), ISBN, Export
+src/components/Medienformular.astro   das Formular, aus formular.ts gezeichnet
+src/scripts/verwaltungsformular.ts    Formular im Browser: Felder, Speichern, ISBN
+src/scripts/papierkorb.ts   „Zurückholen" im Browser
+src/scripts/meldung.ts      der Meldungsbalken der Verwaltung
+
 src/pages/index.astro       Startseite
 src/pages/sparte/           Listenansicht, alle Sortierungen und Seiten
 src/pages/titel/            Detailseite je Titel
@@ -600,6 +703,9 @@ scripts/vercelpruefen.py    prüft vercel.json gegen das Schema von Vercel (opti
 scripts/python.mjs          startet ein Python-Skript mit dem passenden Interpreter
 scripts/suchtest.mts        Prüfungen für die Suche
 scripts/filtertest.mts      Prüfungen für die Filter
+scripts/formattest.mjs      beweist die Byte-Gleichheit des Schreibwegs der Verwaltung
+scripts/isbntest.mjs        Prüfziffern und id-Vorschlag gegen den echten Bestand
+scripts/passwort.mjs        erzeugt Passwort-Hash und Sitzungsgeheimnis
 
 src/pages/sitemap.xml.ts    erzeugt dist/sitemap.xml (1011 Adressen)
 src/pages/robots.txt.ts     erzeugt dist/robots.txt mit Verweis auf die Sitemap
@@ -617,6 +723,13 @@ Vanilla-TypeScript-Skripte: die Suche auf der Startseite (rund 26 KB samt MiniSe
 die Filter auf den Sparten-Listen (rund 18 KB). Stöbern, Sortieren und Blättern
 funktionieren ohne JavaScript.
 
+`output: 'static'` bleibt auch mit der Verwaltung stehen: Der Adapter erzeugt eine
+Serverfunktion nur für die Dateien, die ausdrücklich `export const prerender = false`
+tragen — die Seiten unter `/verwaltung/` und die Routen unter `/api/`. Nachzählen lässt
+sich das nach dem Build unter `.vercel/output/functions/`: Es darf genau ein Ordner sein.
+Der Katalog selbst bleibt eine Sammlung fertiger Dateien. Zwei Laufzeit-Abhängigkeiten hat
+das Projekt: `minisearch` für die Suche und `@astrojs/vercel` für die Serverroute.
+
 Die Module unter `src/lib/` und `src/scripts/` geben in ihren Importen die `.ts`-Endung
 an. Das ist Absicht: So kann Node sie in den Prüfskripten direkt laden, und die Prüfungen
 testen den echten Code statt einer Nachbildung.
@@ -631,3 +744,11 @@ nichts davon wurde in den Daten korrigiert.
 
 47 Einträge tragen ein Feld `_pruefen` mit dem konkreten Vermerk. Felder mit führendem
 Unterstrich (`_quelle`, `_pruefen`) sind Arbeitsmaterial und werden im Katalog nie angezeigt.
+
+**Dazu ein dreizehnter Punkt, der erst mit `npm run isbntest` auffiel:** Bei **zwölf**
+weiteren Einträgen steht eine ISBN in den Daten, deren Prüfziffer nicht aufgeht — ohne
+`_pruefen`-Vermerk, weil der Import nur Form und Länge geprüft hat. Meist ist es eine
+einzelne verlesene Ziffer. Die Liste steht mit Begründung in `scripts/isbntest.mjs`; der
+Testlauf verlangt, dass keine weiteren hinzukommen, und wird von selbst wieder grün, wenn
+einer davon am Buch berichtigt wird. Solange die ISBN falsch ist, findet der ISBN-Abruf der
+Verwaltung zu diesen Titeln nichts.

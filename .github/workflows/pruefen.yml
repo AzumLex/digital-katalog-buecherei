@@ -58,11 +58,41 @@ jobs:
       - name: vercel.json gegen das Vercel-Schema prüfen
         run: npm run vercelpruefen
 
+      # Prüft nicht die Daten, sondern ihre Schreibweise: dass der Schreibweg der
+      # Verwaltung (src/lib/bestand.ts) jede vorhandene Datei byte-gleich zurückgibt.
+      # Steht hier oben bei den Datenprüfungen, weil er wie sie nur die JSON-Dateien
+      # braucht — keinen Build, kein Netz, eine Sekunde.
+      - name: Dateiformat prüfen
+        run: npm run formattest
+
+      # Rechnet die Prüfziffer aller hinterlegten ISBN nach und hält den id-Vorschlag
+      # gegen die vorhandenen Kennungen. Braucht wie die beiden darüber weder Build
+      # noch Netz — die Eingaben sind die Daten selbst.
+      - name: ISBN und Kennungen prüfen
+        run: npm run isbntest
+
       - name: Typen prüfen
         run: npm run check
 
       - name: Website bauen
         run: npm run build
+
+      # Die letzte Sicherung gegen den Fehler aus plan.md § 5, der am teuersten wäre: ein
+      # Geheimnis im ausgelieferten Teil. `dist/` ist genau das — der Ordner, den Vercel
+      # unverändert ins Netz stellt. Gesucht wird nach den beiden Präfixen, die
+      # GitHub-Token tragen, und nach den Namen der Umgebungsvariablen: Steht einer davon
+      # im Bündel, hat ein Modul den Weg in den Browser gefunden, der ihn nie nehmen darf.
+      #
+      # `grep` liefert 1, wenn es nichts findet — hier ist das der Erfolgsfall, deshalb die
+      # umgekehrte Prüfung mit `if`. Ohne sie stünde der Schritt bei sauberem Ergebnis auf
+      # rot.
+      - name: Keine Geheimnisse im ausgelieferten Teil
+        run: |
+          if grep -rIlE 'github_pat_|ghp_|GITHUB_TOKEN|VERWALTUNG_PASSWORT_HASH|SITZUNG_GEHEIMNIS' dist/; then
+            echo "::error::In dist/ steht ein Token-Muster oder der Name einer Geheimnis-Variablen."
+            exit 1
+          fi
+          echo "dist/ ist frei von Token-Mustern."
 
       - name: Suche prüfen
         run: npm run suchtest
