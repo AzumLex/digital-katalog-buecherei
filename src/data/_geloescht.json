@@ -1,0 +1,17 @@
+{
+  "bezeichnung": "Papierkorb",
+  "stand": "2026-08-31",
+  "anzahl": 1,
+  "items": [
+    {
+      "id": "rom-test-eintrag",
+      "sparte": "romane",
+      "medium": "Buch",
+      "titel": "Test-Eintrag",
+      "sprache": "de",
+      "bestand": 1,
+      "status": "verfuegbar",
+      "erfasst_am": "2026-08-31"
+    }
+  ]
+}

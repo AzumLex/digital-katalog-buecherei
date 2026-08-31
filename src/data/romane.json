@@ -3,7 +3,7 @@
   "bezeichnung": "Romane (Deutsch)",
   "stand": "2026-08-31",
   "quelle": "Romane.doc",
-  "anzahl": 807,
+  "anzahl": 806,
   "items": [
     {
       "id": "rom-abidi-noch-immer-zeit-zu-lieben-1849",
@@ -19666,16 +19666,6 @@
       "bestand": 1,
       "status": "verfuegbar",
       "_quelle": "Teige, Trude: Als Großmutter im Regen tanzte. Roman. Aus d. Norweg. v. Günther Frauenlob. Frankfurt: S. Fischer 2023. 381 S. ISBN 978-3-949465-12-3 Festeinbd. € 22,70"
-    },
-    {
-      "id": "rom-test-eintrag",
-      "sparte": "romane",
-      "medium": "Buch",
-      "titel": "Test-Eintrag",
-      "sprache": "de",
-      "bestand": 1,
-      "status": "verfuegbar",
-      "erfasst_am": "2026-08-31"
     },
     {
       "id": "rom-theiss-salzburger-abgruende-6397",
